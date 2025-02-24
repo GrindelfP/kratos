@@ -1,0 +1,5 @@
+= kratos-os =
+
+== Description ==
+An exercise to create a minimalistic and, yet, operational operating system. Kratos is my favourite fictional character from the God of War game series.
+My goal here is to learn how an operating system works by creating one.
