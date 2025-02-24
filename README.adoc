@@ -2,3 +2,12 @@
 
 == The Goal ==
 An exercise to create a minimalistic and, yet, operational operating system. Kratos is my favourite fictional character from the God of War game series. I think, he embodies several great virtues and some of them are persistance and perseverance in reaching the set goals. Those I lack and this OS is also an attempt to practice them. My goal here is to learn how an operating system works by creating one.
+
+By now (2025-02-24) I am quite foggy about what this OS will look like and what it will be able to do, but still I have following expectations:
+
+1. KratosOS will be a terminal-based OS. Maybe I will make a GUI (Graphical User Interface) but that is highly unlikely.
+2. It should have functionality to boot up, execute basic programs (text editor at least) and support file system. 
+3. The input will be done mainly by keyboard, maybe mouse will be supported but that is also highly unlikely.
+4. The output is done to the display. 
+
+Of course these requirements are quite vague and maybe wrong a little, but I want to state here my expectations at the moment when I start the project.
