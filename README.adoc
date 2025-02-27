@@ -11,7 +11,3 @@ By now (2025-02-24) I am quite foggy about what this OS will look like and what 
 4. The output is done to the display. 
 
 Of course these requirements are quite vague and maybe wrong a little, but I want to state here my expectations at the moment when I start the project.
-
-*IMPORTANT* Decide, whether the name will be KratOS or still Kratos.
-
-*2025-02-26* The name will be KratOS. It sounds better.
