@@ -1,0 +1,22 @@
+= Development Log = 
+
+== 2025-02-27 ==
+
+Devlogs are now here, the https://github.com/GrindelfP/kratos/blob/main/README.adoc[README] should contain clean information on the project.
+  
+== 2025-02-26 == 
+  
+The name will be KratOS. It sounds better. 
+  
+== 2025-02-24 == 
+
+I am quite foggy about what this OS will look like and what it will be able to do, but still I have following expectations:
+
+1. KratosOS will be a terminal-based OS. Maybe I will make a GUI (Graphical User Interface) but that is highly unlikely.
+2. It should have functionality to boot up, execute basic programs (text editor at least) and support file system. 
+3. The input will be done mainly by keyboard, maybe mouse will be supported but that is also highly unlikely.
+4. The output is done to the display. 
+
+Of course these requirements are quite vague and maybe wrong a little, but I want to state here my expectations at the moment when I start the project.
+
+*IMPORTANT* Decide, whether the name will be KratOS or still Kratos.
