@@ -1,5 +1,10 @@
 = Development Log = 
 
+== 2025-03-17 ==
+
+I will try to build an ARM-focuced OS, which will has 64-bit register size.
+The next step is to understand what difficulties and tasks lie in this field.
+
 == 2025-02-27 ==
 
 Devlogs are now here, the https://github.com/GrindelfP/kratos/blob/main/README.adoc[README] should contain clean information on the project.
