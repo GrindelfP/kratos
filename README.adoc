@@ -11,3 +11,15 @@ By now (2025-02-24) I am quite foggy about what this OS will look like and what 
 4. The output is done to the display. 
 
 Of course these requirements are quite vague and maybe wrong a little, but I want to state here my expectations at the moment when I start the project.
+
+== A little about project structure ==
+
+You may see two directories: 
+
+- edu,
+- kratos.
+
+The *edu* directory contains all the code which I do to learn and implement things required to build skillset for the OS development in my particular case.
+
+The *kratos* directory contains everything directly related to the KratOS system.
+
