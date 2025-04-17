@@ -2,9 +2,9 @@
 
 == 2025-04-17 ==
 
-The project will contain not only parts which are directly connected to the KratOS, but also it will include the 'exercises' that I do in order to obtain specific skills for the project. Thus the development history will be presented in flash as well as, maybe it will show future me and someone interested how you should and shouldn't (probably the last one will prevail) do your OS development project.
+The project will contain not only parts which are directly connected to the KratOS, but also it will include the 'exercises' that I do in order to obtain specific skills for the project. Thus the development history will be presented in flesh as well as, maybe it will show future me and someone interested how you should and shouldn't (probably the last one will prevail) do your OS development project.
 
-Also I had some thoughts on what initial goal/future plans are for my KratOS. It's important, I think, to make goals, which will not block the development. I mean, I should not hope to create the best OS ever, or beat the existing mastodons of the sphere, but it's far worse tp think that my job is a dead end and will end up in a read repository unseen by anybody. I hope, everything I do will find its users, and by now I will just try to do my job the best way, as if I am doing the bet OS ever, and we wiil se what comes next. 
+Also I had some thoughts on what initial goal/future plans are for my KratOS. It's important, I think, to make goals, which will not block the development. I mean, I should not hope to create the best OS ever, or beat the existing mastodons of the sphere, but it's far worse tp think that my job is a dead end and will end up in a dead repository unseen by anybody. I hope, everything I do will find its users, and by now I will just try to do my job the best way, as if I am doing the bet OS ever, and we wiil se what comes next. 
 
 == 2025-03-17 ==
 
