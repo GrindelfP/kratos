@@ -1,6 +1,6 @@
 # Document kernel boundaries and the debug loop
 
-**Status:** in progress
+**Status:** done
 
 ## Description
 
@@ -19,6 +19,8 @@ An inspectable, understandable system is the project’s intended distinction. C
 ## Implementation status
 
 The boot-to-kernel and architecture boundaries and QEMU debug loop are described
-in [`kernel-debugging.md`](../kernel-debugging.md). Command verification and
-QEMU evidence will be recorded after the implementation/build workflow is
-committed.
+in [`kernel-debugging.md`](../kernel-debugging.md). The commands were checked
+against `qemu-boot.md` and `kratos/build-qemu.sh`; a Limine ISO built and QEMU's
+BIOS path produced the expected serial output. Issuing `nmi` through the QEMU
+monitor produced a vector-2 diagnostic. UEFI, physical hardware, and remote
+debugger operation remain unverified.
