@@ -1,6 +1,6 @@
 # Validate the x86 freestanding Zig toolchain
 
-**Status:** ready
+**Status:** in progress
 
 ## Description
 
@@ -16,3 +16,12 @@ Zig is the proposed direction, not yet a validated commitment. Early validation 
 - A minimal freestanding x86 artifact builds reproducibly with documented commands.
 - Linker output, runtime assumptions, and available debugging path are described.
 - A recommendation to proceed, adjust, or revisit the language choice is recorded with evidence and limitations.
+
+## Implementation status
+
+Zig 0.17.0 on Apple Silicon macOS reproducibly built a freestanding x86_64
+ReleaseSmall ELF. ELF type, entry point, load segments, and absence of dynamic
+loader/dependency were inspected; an unstripped companion exposed `_start` and
+no unresolved symbols. The project's Limine/QEMU kernel boot has also been
+verified. Debug-mode output and remote-debugger operation have documented
+limitations in [`zig-x86-toolchain-validation.md`](../research/zig-x86-toolchain-validation.md).
