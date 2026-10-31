@@ -1,6 +1,6 @@
 # Add polled serial-console input
 
-**Status:** in progress
+**Status:** done
 
 ## Description
 
@@ -32,5 +32,6 @@ Added `kratos/kernel/console.zig` with freestanding polled COM1 setup, output,
 and bounded line input. The editor accepts CR, LF, and CRLF, echoes input,
 supports backspace/delete, and rejects over-capacity characters with BEL while
 allowing backspace to resume entry. Three pure editor tests cover empty
-termination, CRLF split across read calls, backspace, and capacity. The ticket
-remains in progress until ticket 0009 exercises line input in QEMU.
+termination, CRLF split across read calls, backspace, and capacity. Ticket 0009
+integrated this module into the shell. QEMU input was exercised with multiple
+commands, backspace, an empty line, and a CRLF-terminated command.
