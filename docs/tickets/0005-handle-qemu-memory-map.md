@@ -1,6 +1,6 @@
 # Handle the QEMU memory map
 
-**Status:** in progress
+**Status:** done
 
 ## Description
 
@@ -19,9 +19,12 @@ Memory-map handling and an allocation strategy are prerequisites for kernel grow
 
 ## Implementation status
 
-An isolated Limine map validator and monotonic page-frame allocator are
-implemented and unit-tested. Kernel request wiring, QEMU validation, and
-remaining limitations will be recorded after the boot integration is committed.
+The Limine memory-map request is wired into the kernel entry. The kernel bounds
+the entry count, copies entries into fixed kernel-owned storage, validates the
+entire map, initializes the allocator, and allocates a usable page before
+continuing. Unit tests pass, and QEMU reported 16 entries with first usable
+frame `0x7e000`. The allocator is deliberately monotonic; malformed map behavior
+is unit-tested, not injected through the bootloader.
 
 ## Current implementation
 
