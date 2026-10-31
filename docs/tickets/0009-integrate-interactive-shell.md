@@ -1,6 +1,6 @@
 # Integrate an interactive QEMU kernel shell
 
-**Status:** in progress
+**Status:** done
 
 ## Implementation notes
 
@@ -14,8 +14,9 @@
   entry count, total usable-region bytes, and first allocated usable frame.
 - The loop prints `kratos> ` for each command; `halt` disables interrupts and
   halts the CPU. No dynamic allocation is introduced.
-- QEMU verification and the sample transcript are recorded in the completion
-  commit.
+- Built with Zig 0.17.0 and Limine 12.9.6; interactive QEMU checks passed for
+  all built-ins, unknown-command recovery, repeated commands, empty input,
+  backspace, CRLF, and halt. See [`qemu-boot.md`](../qemu-boot.md) for usage.
 
 ## Description
 

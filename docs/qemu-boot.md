@@ -27,28 +27,53 @@ ZIG=/path/to/zig-0.17.0/bin/zig LIMINE_DIR=/path/to/limine \
 The script compiles a freestanding x86-64 ELF, stages the Limine files, creates
 an ISO with xorriso, installs Limine's BIOS stage, then runs QEMU's BIOS path
 (`q35`, 256 MiB) with serial redirected to the terminal. The
-expected UART output for the current kernel is:
+expected initial UART output is:
 
 ```text
 KratOS: Limine x86_64 kernel entered
 KratOS: memory map entries=0000000000000010 first usable frame=0x000000000007e000
+kratos>
 ```
 
 `./kratos/build-qemu.sh --build-only` stops after ISO creation. The kernel
 prints through COM1 (0x3f8), validates the Limine memory map, allocates one
-usable physical page frame, installs an IDT for CPU exceptions, and then halts.
+usable physical page frame, installs an IDT for CPU exceptions, then enters a
+bounded serial shell. Type commands in the QEMU terminal and press Enter.
+Built-ins are `help`, `about`, `echo <text>`, `mem`, `clear`, and `halt`;
+unknown commands report an error and return to the prompt. Input is limited to
+128 bytes; extra characters ring the terminal bell until backspace makes room.
+CR, LF, and CRLF line endings are accepted.
+
+Example interaction (memory values depend on the Limine map):
+
+```text
+kratos> help
+help about echo mem clear halt
+kratos> about
+KratOS: a small hobby operating system
+kratos> echo hello KratOS
+hello KratOS
+kratos> mem
+Memory map entries: <entry count>, usable bytes: <usable byte total>, first usable frame: <frame address>
+kratos> halt
+KratOS halted
+```
+
+`halt` disables interrupts and halts the CPU.
 The same QEMU image can test fatal exception reporting: connect to the QEMU
-monitor and issue `nmi`; the expected diagnostic is vector 2 and error code 0.
+monitor and issue `nmi`; the diagnostic includes vector 2, error code 0, and the
+interrupted instruction address.
 The kernel does not yet provide a general allocator, virtual-memory manager,
 device drivers, or hardware support beyond this QEMU profile.
 
 ## Validation status
 
 Verified on Apple Silicon macOS with Zig 0.17.0, Clang, xorriso 1.5.8.pl02,
-Limine 12.9.6, and QEMU 11.1.2. The build-only command produced the ISO; the
-QEMU BIOS run emitted the kernel entry, memory-map count, and first allocated
-usable frame. A separate QEMU monitor `nmi` command reached the exception
-handler, which printed vector 2 and halted. The ISO tool reports an
+Limine 12.9.6, and QEMU 11.1.2. The build-only command produced the ISO; QEMU
+BIOS interaction verified the prompt, all documented built-ins, unknown-command
+recovery, multiple commands, empty input, backspace, CRLF, and halt. A separate
+QEMU monitor `nmi` command reached the exception handler, which printed vector 2,
+error code 0, and RIP before halting. The ISO tool reports an
 EFI-directory warning; only the BIOS QEMU path is tested, and no physical
 hardware or UEFI boot is claimed. This proves the prototype path, not general
 hardware support.
