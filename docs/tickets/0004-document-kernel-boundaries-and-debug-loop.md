@@ -1,6 +1,6 @@
 # Document kernel boundaries and the debug loop
 
-**Status:** ready
+**Status:** in progress
 
 ## Description
 
@@ -15,3 +15,10 @@ An inspectable, understandable system is the project’s intended distinction. C
 - A new contributor can identify the boot handoff, kernel entry, and architecture-specific code.
 - Build, run, and debugging steps are documented and verified against the prototype.
 - Current assumptions and known gaps are explicit; no future architecture is promised.
+
+## Implementation status
+
+The boot-to-kernel and architecture boundaries and QEMU debug loop are described
+in [`kernel-debugging.md`](../kernel-debugging.md). Command verification and
+QEMU evidence will be recorded after the implementation/build workflow is
+committed.
