@@ -1,6 +1,6 @@
 # Add polled serial-console input
 
-**Status:** ready
+**Status:** in progress
 
 ## Description
 
@@ -22,7 +22,15 @@ current emulator workflow. Depends on the bootable prototype in ticket
 - Input is polled from COM1 and line storage is bounded with documented overflow
   behavior.
 - Backspace and line termination behave predictably; empty lines are safe.
-- The line-input path is exercised in QEMU when integrated by ticket
-  [0009](0009-integrate-interactive-shell.md).
+- The line-input path is exercised in QEMU when integrated by ticket [0009](0009-integrate-interactive-shell.md).
 - The implementation makes no claim of keyboard, terminal-emulator, or physical
   UART support beyond the tested QEMU setup.
+
+## Implementation status
+
+Added `kratos/kernel/console.zig` with freestanding polled COM1 setup, output,
+and bounded line input. The editor accepts CR, LF, and CRLF, echoes input,
+supports backspace/delete, and rejects over-capacity characters with BEL while
+allowing backspace to resume entry. Three pure editor tests cover empty
+termination, CRLF split across read calls, backspace, and capacity. The ticket
+remains in progress until ticket 0009 exercises line input in QEMU.
