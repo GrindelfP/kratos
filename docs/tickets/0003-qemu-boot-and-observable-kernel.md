@@ -1,6 +1,6 @@
 # Boot an observable kernel in QEMU
 
-**Status:** ready
+**Status:** in progress
 
 ## Description
 
@@ -16,3 +16,10 @@ This is the first end-to-end proof that the project can boot its own kernel. Dep
 - The kernel reaches its entry point and emits a recognizable result.
 - Build, boot, and expected output are documented so the result is reproducible.
 - Toolchain, emulator, and boot-path limitations are recorded; no physical hardware support is implied.
+
+## Implementation status
+
+A Zig freestanding kernel entry, Limine request markers, COM1 output, linker
+script, and ISO/QEMU build script are implemented. Final image-build and QEMU
+serial validation, together with reproducible instructions and limitations,
+are recorded in the follow-up validation commit.
