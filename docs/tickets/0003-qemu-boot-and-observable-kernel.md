@@ -1,6 +1,6 @@
 # Boot an observable kernel in QEMU
 
-**Status:** in progress
+**Status:** done
 
 ## Description
 
@@ -20,6 +20,7 @@ This is the first end-to-end proof that the project can boot its own kernel. Dep
 ## Implementation status
 
 A Zig freestanding kernel entry, Limine request markers, COM1 output, linker
-script, and ISO/QEMU build script are implemented. Final image-build and QEMU
-serial validation, together with reproducible instructions and limitations,
-are recorded in the follow-up validation commit.
+script, and ISO/QEMU build script are implemented. With Zig 0.17.0, Limine
+12.9.6, xorriso, and QEMU, the image built and the BIOS QEMU run emitted kernel
+entry and memory-map allocation output. Exact commands and limitations are in
+[`qemu-boot.md`](../qemu-boot.md).
