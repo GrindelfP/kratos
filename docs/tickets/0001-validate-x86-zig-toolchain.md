@@ -1,6 +1,6 @@
 # Validate the x86 freestanding Zig toolchain
 
-**Status:** in progress
+**Status:** done
 
 ## Description
 
