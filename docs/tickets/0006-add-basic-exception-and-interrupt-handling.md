@@ -1,6 +1,6 @@
 # Add basic x86 exception and interrupt handling
 
-**Status:** in progress
+**Status:** done
 
 ## Description
 
@@ -19,9 +19,11 @@ Basic fault visibility is needed to debug kernel foundations. Depends on the boo
 
 ## Implementation status
 
-Zig IDT setup and x86_64 assembly stubs for exception vectors 0–31 are
-implemented. Kernel linkage, COM1 diagnostics, QEMU event validation, and
-remaining limitations will be recorded after integration is committed.
+The Zig IDT setup and x86_64 assembly stubs for exception vectors 0–31 are linked
+into the kernel. Fatal exceptions report the vector and error code over COM1,
+then halt. In QEMU, issuing `nmi` in the monitor produced a vector-2 diagnostic
+and a halted kernel. The implementation does not yet handle external device
+interrupts, return from exceptions, or provide scheduling/SMP support.
 
 ## Implementation notes
 
