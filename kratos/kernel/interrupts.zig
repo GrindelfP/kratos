@@ -81,13 +81,15 @@ pub fn install() void {
 
 /// Called by the assembly boundary. Fatal exceptions are intentionally
 /// non-returning; the caller must keep maskable interrupts disabled for now.
-export fn kratos_exception_dispatch(vector: u64, error_code: u64) noreturn {
+export fn kratos_exception_dispatch(vector: u64, error_code: u64, instruction_pointer: u64) noreturn {
     last_exception_vector = vector;
     last_exception_error = error_code;
     serialWrite("KratOS: fatal x86 exception vector=0x");
     serialWriteHex(vector);
     serialWrite(" error=0x");
     serialWriteHex(error_code);
+    serialWrite(" rip=0x");
+    serialWriteHex(instruction_pointer);
     serialWrite("\r\n");
     while (true) asm volatile ("cli; hlt");
 }

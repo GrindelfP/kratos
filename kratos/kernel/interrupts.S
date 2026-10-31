@@ -75,6 +75,7 @@ kratos_exception_common:
     pushq %r15
     movq 120(%rsp), %rdi       /* vector, below 15 saved registers */
     movq 128(%rsp), %rsi       /* error code */
+    movq 136(%rsp), %rdx       /* interrupted instruction pointer */
     movq %rsp, %r12
     andq $-16, %rsp
     call kratos_exception_dispatch

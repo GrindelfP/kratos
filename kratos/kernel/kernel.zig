@@ -2,6 +2,8 @@
 
 const memory_map = @import("memory_map.zig");
 const interrupts = @import("interrupts.zig");
+const console = @import("console.zig");
+const shell_commands = @import("shell_commands.zig");
 
 const max_memory_map_entries = 128;
 
@@ -27,6 +29,11 @@ var raw_regions: [max_memory_map_entries]memory_map.LimineMemmapEntry = undefine
 var validated_regions: [max_memory_map_entries]memory_map.Region = undefined;
 var allocation_cursors: [max_memory_map_entries]u64 = undefined;
 var frame_allocator: memory_map.FrameAllocator = undefined;
+var shell_writer_context: u8 = 0;
+
+fn writeShellOutput(_: *anyopaque, bytes: []const u8) void {
+    console.write(bytes);
+}
 
 fn outb(port: u16, value: u8) void {
     asm volatile ("outb %al, %dx"
@@ -34,30 +41,6 @@ fn outb(port: u16, value: u8) void {
         : [value] "{al}" (value),
           [port] "{dx}" (port),
     );
-}
-
-fn inb(port: u16) u8 {
-    return asm volatile ("inb %dx, %al"
-        : [value] "={al}" (-> u8),
-        : [port] "{dx}" (port),
-    );
-}
-
-fn serialInit() void {
-    outb(0x3f9, 0x00);
-    outb(0x3fb, 0x80);
-    outb(0x3f8, 0x03);
-    outb(0x3f9, 0x00);
-    outb(0x3fb, 0x03);
-    outb(0x3fa, 0xc7);
-    outb(0x3fc, 0x0b);
-}
-
-fn serialWrite(text: []const u8) void {
-    for (text) |byte| {
-        while ((inb(0x3fd) & 0x20) == 0) {}
-        outb(0x3f8, byte);
-    }
 }
 
 fn serialWriteHex(value: u64) void {
@@ -70,13 +53,13 @@ fn serialWriteHex(value: u64) void {
 }
 
 fn fatalBoot(message: []const u8) noreturn {
-    serialWrite("KratOS: boot error: ");
-    serialWrite(message);
-    serialWrite("\r\n");
+    console.write("KratOS: boot error: ");
+    console.write(message);
+    console.write("\r\n");
     while (true) asm volatile ("cli; hlt");
 }
 
-fn initializeMemoryMap() void {
+fn initializeMemoryMap() shell_commands.MemorySummary {
     const response = memory_map_request.response orelse fatalBoot("missing Limine memory map");
     if (response.entry_count == 0 or response.entry_count > max_memory_map_entries) {
         fatalBoot("invalid Limine memory map entry count");
@@ -92,11 +75,41 @@ fn initializeMemoryMap() void {
         fatalBoot("cannot initialize physical frame allocator");
     };
     const first_frame = frame_allocator.allocate() orelse fatalBoot("no usable physical frames");
-    serialWrite("KratOS: memory map entries=");
+    var usable_bytes: u64 = 0;
+    for (regions) |region| {
+        if (region.kind == .usable) usable_bytes += region.length;
+    }
+    console.write("KratOS: memory map entries=");
     serialWriteHex(count);
-    serialWrite(" first usable frame=0x");
+    console.write(" first usable frame=0x");
     serialWriteHex(first_frame);
-    serialWrite("\r\n");
+    console.write("\r\n");
+    return .{
+        .map_entries = count,
+        .usable_bytes = usable_bytes,
+        .first_usable_frame = first_frame,
+    };
+}
+
+fn runShell(memory: shell_commands.MemorySummary) noreturn {
+    var context = shell_commands.Context{
+        .memory = memory,
+        .writer_context = &shell_writer_context,
+        .write = writeShellOutput,
+    };
+    var line: [console.line_capacity]u8 = undefined;
+    while (true) {
+        console.write("kratos> ");
+        const input = console.readLine(&line);
+        const action = shell_commands.execute(&context, input) catch {
+            console.write("Command line too long\r\n");
+            continue;
+        };
+        if (action == .halt) {
+            console.write("KratOS halted\r\n");
+            while (true) asm volatile ("cli; hlt");
+        }
+    }
 }
 
 export var request_start: [4]u64 linksection(".limine_requests_start") = .{
@@ -111,11 +124,9 @@ export var request_end: [2]u64 linksection(".limine_requests_end") = .{
 };
 
 export fn kratos_kernel_main() noreturn {
-    serialInit();
-    serialWrite("KratOS: Limine x86_64 kernel entered\r\n");
+    console.init();
+    console.write("KratOS: Limine x86_64 kernel entered\r\n");
     interrupts.install();
-    initializeMemoryMap();
-    while (true) {
-        asm volatile ("hlt");
-    }
+    const memory = initializeMemoryMap();
+    runShell(memory);
 }

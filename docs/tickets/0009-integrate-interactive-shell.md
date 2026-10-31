@@ -1,6 +1,21 @@
 # Integrate an interactive QEMU kernel shell
 
-**Status:** ready
+**Status:** in progress
+
+## Implementation notes
+
+- Kernel startup now initializes the serial console and runs the bounded command
+  loop after IDT and memory-map initialization. The dispatcher receives the
+  entry count, total usable-region bytes, and first allocated usable frame.
+- The loop prints `kratos> ` for each command; `halt` disables interrupts and
+  halts the CPU. No dynamic allocation is introduced.
+- Kernel startup now initializes the serial console and runs the bounded command
+  loop after IDT and memory-map initialization. The dispatcher receives the
+  entry count, total usable-region bytes, and first allocated usable frame.
+- The loop prints `kratos> ` for each command; `halt` disables interrupts and
+  halts the CPU. No dynamic allocation is introduced.
+- QEMU verification and the sample transcript are recorded in the completion
+  commit.
 
 ## Description
 

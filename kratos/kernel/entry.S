@@ -13,6 +13,7 @@ _start:
     orq $0x600, %rax        /* OSFXSR | OSXMMEXCPT. */
     movq %rax, %cr4
     fninit
+    andq $-16, %rsp         /* Align the stack for the System V kernel ABI. */
     call kratos_kernel_main
 .Lhalt:
     hlt
