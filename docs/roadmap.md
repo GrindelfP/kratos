@@ -26,11 +26,11 @@ Build the minimum architecture and kernel mechanisms needed to support a usable 
 
 ### 3. Minimal usable system
 
-Add the first end-to-end system experience: a basic device/input-output path, a minimal user execution model, and an interactive command environment.
+Add the first end-to-end interactive experience: a polled serial console, a small command interpreter, and a useful set of built-in commands. This is a kernel shell for the QEMU prototype; user-mode programs remain later work.
 
-**Exit criteria:** a user-facing program can start, perform basic I/O, and return control predictably; a documented QEMU demo exercises the path.
+**Exit criteria:** QEMU reaches a prompt; users can enter commands and receive predictable responses; line editing and command handling are bounded; a documented demo exercises the shell.
 
-**Scope:** the smallest coherent path from boot to interaction. **Non-goals:** broad application compatibility, polished desktop, or a claim of POSIX completeness.
+**Scope:** serial input/output, a simple line editor, built-in commands, and a kernel command loop. **Non-goals:** keyboard/video drivers, user-mode processes, filesystem, broad application compatibility, polished desktop, or a claim of POSIX completeness.
 
 ### 4. POSIX and userland growth
 
@@ -50,4 +50,4 @@ Expand from QEMU to selected physical PC hardware and improve installation, reco
 
 ## Near-term tickets
 
-Tickets for stages 1 and 2 are in [`tickets/`](tickets/). Later-stage work remains roadmap-level until the foundations and user-facing requirements are clearer.
+Tickets for stages 1–3 are in [`tickets/`](tickets/). Tickets 0007–0009 deliver the first interactive serial shell; later userland and POSIX work remains roadmap-level until this shell is usable.
