@@ -1,6 +1,6 @@
 # Select and document the x86 boot path
 
-**Status:** in progress
+**Status:** done
 
 ## Description
 
