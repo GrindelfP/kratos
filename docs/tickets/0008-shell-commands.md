@@ -1,6 +1,16 @@
 # Implement a small built-in command set
 
-**Status:** ready
+**Status:** in progress
+
+## Implementation notes
+
+- Added `kratos/kernel/shell_commands.zig`, a fixed-line-length dispatcher with
+  a writer callback, caller-supplied memory summary, and explicit halt action.
+- Added automated tests for empty/whitespace input, arguments, unknown commands,
+  memory output, halt, and overlong input; `zig test
+  kratos/kernel/shell_commands.zig` passes all four tests.
+- Not complete until ticket [0009](0009-integrate-interactive-shell.md)
+  integrates and demonstrates the commands in QEMU.
 
 ## Description
 
