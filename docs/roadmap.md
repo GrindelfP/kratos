@@ -30,7 +30,7 @@ Add the first end-to-end interactive experience: reliable serial input, a small 
 
 **Exit criteria:** QEMU presents a branded welcome and reaches a usable prompt; users can enter commands without serial input loss and receive predictable responses; line editing, rendering, and command handling are bounded; the `kratos` animated demo can be launched and exited; a documented demo exercises the system.
 
-**Scope:** serial input/output, framebuffer/raster/font/console interfaces, a simple line editor, built-in commands, boot/shell presentation, a bounded foreground animation, and a kernel command loop. **Non-goals:** keyboard driver, user-mode processes, filesystem, arbitrary executable loading, broad application compatibility, polished desktop, or a claim of POSIX completeness.
+**Scope:** serial and polled PS/2 keyboard input, framebuffer/raster/font/console interfaces, a simple line editor, built-in commands, boot/shell presentation, a bounded foreground animation, and a kernel command loop. **Non-goals:** user-mode processes, filesystem, arbitrary executable loading, broad application compatibility, polished desktop, or a claim of POSIX completeness.
 
 ### 4. POSIX and userland growth
 
@@ -50,4 +50,4 @@ Expand from QEMU to selected physical PC hardware and improve installation, reco
 
 ## Near-term tickets
 
-Tickets for stages 1–3 are in [`tickets/`](tickets/). Tickets 0007–0009 delivered the initial serial shell. Tickets 0010–0013 address tester-reported shell input corruption, reusable framebuffer console infrastructure, the branded boot/shell experience, and the animated `kratos` foreground application. User-mode process isolation, executable loading, keyboard input, filesystem, and POSIX work remain later roadmap milestones.
+Tickets for stages 1–3 are in [`tickets/`](tickets/). Tickets 0007–0009 delivered the initial serial shell. Tickets 0010–0013 address tester-reported shell input corruption, reusable framebuffer console infrastructure, the branded boot/shell experience, and the animated `kratos` foreground application. Ticket 0014 adds direct QEMU-window keyboard input and an ASCII-art text welcome. User-mode process isolation, executable loading, filesystem, and POSIX work remain later roadmap milestones.

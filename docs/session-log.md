@@ -32,6 +32,8 @@
 
 2026-11-01 - 14:21 MSK - Built Limine 12.9.6 from the provided source archive (installed mtools with approval), built and BIOS-booted KratOS in QEMU, and verified welcome/logo, shell, `kratos` movement/exit, serial regression, and no-framebuffer fallback at 1280x800 and 320x200. Fixed scaled-logo RGB channel order, enlarged the bitmap console font, corrected multi-line sprite positioning/full-screen flicker, made the narrow-screen footer responsive, and updated visual-verification records.
 
+2026-11-01 - 14:25 MSK - Planned ticket 0014 after discovering the QEMU framebuffer had no direct keyboard input path; the shell only accepted COM1 input. Ticket covers a bounded polled PS/2 keyboard driver, dual keyboard/serial shell input, and a multiline ASCII-art welcome logo while preserving serial recovery.
+
 2026-11-01 - 13:36 MSK - Implemented ticket 0012's responsive KratOS welcome/logo, Spartan-red framebuffer shell presentation, expanded built-in font, direct framebuffer clear without ANSI escapes, host tests, and a QEMU visual checklist. Host validation and freestanding kernel compile/link passed; QEMU visual verification is pending because LIMINE_DIR is unset.
 
 2026-11-01 - 14:10 MSK - Implemented ticket 0013's bounded foreground framebuffer animation, independent movement/direction/frame-policy tests, PIT channel-2 pacing with COM1 exit polling, branded shell restoration, and QEMU checklist; host tests and freestanding compile/link passed, visual QEMU checks remain blocked by unavailable Limine files.
