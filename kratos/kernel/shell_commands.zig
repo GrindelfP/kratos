@@ -32,7 +32,12 @@ pub fn execute(context: *Context, line: []const u8) Error!Action {
     } else if (eql(command, "about")) {
         context.write(context.writer_context, "KratOS: a small hobby operating system\r\n");
     } else if (eql(command, "echo")) {
-        context.write(context.writer_context, args);
+        var decoded: [max_line_length]u8 = undefined;
+        const text = decodeEcho(args, &decoded) catch {
+            context.write(context.writer_context, "echo: unmatched quote\r\n");
+            return .continue_shell;
+        };
+        context.write(context.writer_context, text);
         context.write(context.writer_context, "\r\n");
     } else if (eql(command, "mem")) {
         context.write(context.writer_context, "Memory map entries: ");
@@ -57,6 +62,30 @@ pub fn execute(context: *Context, line: []const u8) Error!Action {
         context.write(context.writer_context, "\r\n");
     }
     return .continue_shell;
+}
+
+/// Removes matching single/double quote delimiters while retaining all other
+/// bytes (including spaces). Backslash escaping is intentionally unsupported.
+fn decodeEcho(args: []const u8, output: *[max_line_length]u8) error{UnmatchedQuote}![]const u8 {
+    var len: usize = 0;
+    var quote: ?u8 = null;
+    for (args) |byte| {
+        if (quote) |delimiter| {
+            if (byte == delimiter) {
+                quote = null;
+            } else {
+                output[len] = byte;
+                len += 1;
+            }
+        } else if (byte == '\'' or byte == '"') {
+            quote = byte;
+        } else {
+            output[len] = byte;
+            len += 1;
+        }
+    }
+    if (quote != null) return error.UnmatchedQuote;
+    return output[0..len];
 }
 
 fn trim(text: []const u8) []const u8 {
@@ -155,4 +184,28 @@ test "rejects overlong lines before dispatch" {
     const line: [max_line_length + 1]u8 = @splat('x');
     try std.testing.expectError(error.LineTooLong, execute(&context, &line));
     try std.testing.expectEqual(@as(usize, 0), output.len);
+}
+
+test "echo removes matching quote delimiters and preserves argument bytes" {
+    var output: TestOutput = .{};
+    var context = Context{ .writer_context = &output, .write = TestOutput.write };
+    const cases = [_][2][]const u8{
+        .{ "echo hello world", "hello world\r\n" },
+        .{ "echo 'hello world'", "hello world\r\n" },
+        .{ "echo \"hello world\"", "hello world\r\n" },
+        .{ "echo ''", "\r\n" },
+        .{ "echo \"a\"'b'", "ab\r\n" },
+    };
+    for (cases) |case| {
+        output.len = 0;
+        try std.testing.expectEqual(Action.continue_shell, try execute(&context, case[0]));
+        try std.testing.expectEqualStrings(case[1], output.contents());
+    }
+}
+
+test "echo rejects unmatched quotes without emitting partial output" {
+    var output: TestOutput = .{};
+    var context = Context{ .writer_context = &output, .write = TestOutput.write };
+    try std.testing.expectEqual(Action.continue_shell, try execute(&context, "echo 'unfinished"));
+    try std.testing.expectEqualStrings("echo: unmatched quote\r\n", output.contents());
 }

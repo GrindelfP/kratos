@@ -100,7 +100,7 @@ fn runShell(memory: shell_commands.MemorySummary) noreturn {
     var line: [console.line_capacity]u8 = undefined;
     while (true) {
         console.write("kratos> ");
-        const input = console.readLine(&line);
+        const input = console.readLine(&line) orelse continue;
         const action = shell_commands.execute(&context, input) catch {
             console.write("Command line too long\r\n");
             continue;
