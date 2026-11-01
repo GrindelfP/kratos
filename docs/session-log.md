@@ -45,3 +45,5 @@
 2026-11-01 - 15:41 MSK - Created planned ticket 0015 for a QEMU-specific guest shutdown command and clarified in the README, QEMU guide, and roadmap that `halt` stops the guest CPU while Ctrl+C is a host-side action the guest cannot send.
 
 2026-11-01 - 16:01 MSK - Implemented ticket 0015: added the `shutdown` action and a QEMU `isa-debug-exit` boundary, configured the normal launcher, and extended serial/keyboard QEMU regressions to assert process exit status 33. Verified command tests, freestanding ISO build, serial `halt` preservation, keyboard shutdown, and serial shutdown; updated run documentation.
+
+2026-11-01 - 16:12 MSK - Created ticket 0016 to increase shell font size and add a full-line-height bottom inset, with responsive 1280x800/320x200 layout, scrolling, and screenshot acceptance criteria.
