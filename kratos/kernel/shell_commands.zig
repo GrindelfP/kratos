@@ -2,6 +2,7 @@
 //! here; callers supply the writer and a compact snapshot of boot memory data.
 
 pub const max_line_length = 128;
+pub const names = [_][]const u8{ "help", "about", "echo", "mem", "clear", "kratos", "halt", "shutdown" };
 
 pub const Action = enum { continue_shell, halt, kratos, shutdown };
 
