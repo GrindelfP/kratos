@@ -49,8 +49,10 @@ const glyphs = [_][5]u8{
 const lowercase_glyphs = [_][5]u8{
     .{ 0, 14, 1, 15, 15 }, .{ 16, 16, 30, 17, 30 }, .{ 0, 14, 16, 16, 14 }, .{ 1, 1, 15, 17, 15 }, .{ 0, 14, 31, 16, 14 }, .{ 6, 8, 28, 8, 8 }, .{ 0, 15, 17, 15, 1 }, .{ 16, 16, 30, 17, 17 }, .{ 4, 0, 12, 4, 14 }, .{ 2, 0, 2, 2, 18 }, .{ 16, 18, 28, 18, 17 }, .{ 12, 4, 4, 4, 14 }, .{ 0, 26, 21, 21, 21 }, .{ 0, 30, 17, 17, 17 }, .{ 0, 14, 17, 17, 14 }, .{ 0, 30, 17, 30, 16 }, .{ 0, 15, 17, 15, 1 }, .{ 0, 22, 24, 16, 16 }, .{ 0, 15, 24, 7, 30 }, .{ 8, 28, 8, 8, 6 }, .{ 0, 17, 17, 19, 13 }, .{ 0, 17, 17, 10, 4 }, .{ 0, 17, 21, 21, 10 }, .{ 0, 17, 10, 4, 10 }, .{ 0, 17, 17, 15, 1 }, .{ 0, 31, 2, 4, 31 },
 };
-pub const font_width = 12;
-pub const font_height = 12;
+// 5x5 source glyphs are drawn as 3x3 pixels in an 18x20 cell. The unused
+// horizontal/vertical cell space gives adjacent text a little breathing room.
+pub const font_width = 18;
+pub const font_height = 20;
 pub fn drawGlyph(surface: *Surface, x: isize, y: isize, byte: u8, fg: Color, bg: Color) void {
     const index = std.mem.indexOfScalar(u8, alphabet, byte);
     const lower_index = if (byte >= 'a' and byte <= 'z') @as(usize, byte - 'a') else null;
@@ -59,8 +61,8 @@ pub fn drawGlyph(surface: *Surface, x: isize, y: isize, byte: u8, fg: Color, bg:
     };
     const rows = if (index) |i| glyphs[i] else if (lower_index) |i| lowercase_glyphs[i] else special orelse .{ 0, 0, 0, 0, 0 };
     for (0..font_height) |row| for (0..font_width) |col| {
-        const glyph_row = row / 2;
-        const glyph_col = col / 2;
+        const glyph_row = row / 3;
+        const glyph_col = col / 3;
         const on = glyph_row < 5 and glyph_col < 5 and (rows[glyph_row] & (@as(u8, 1) << @intCast(4 - glyph_col))) != 0;
         surface.pixel(x + @as(isize, @intCast(col)), y + @as(isize, @intCast(row)), if (on) fg else bg);
     };
@@ -83,6 +85,7 @@ pub const Console = struct {
     y: usize = 0,
     fg: Color = 0xffffff,
     bg: Color = 0,
+    bottom_padding: usize = 0,
     pub fn clear(self: *Console) void {
         self.surface.fill(self.bg);
         self.x = 0;
@@ -91,8 +94,9 @@ pub const Console = struct {
     fn newline(self: *Console) void {
         self.x = 0;
         self.y += font_height;
-        if (self.y + font_height > self.surface.height) {
-            const rows = self.surface.height -| font_height;
+        const usable_height = self.surface.height -| self.bottom_padding;
+        if (self.y + font_height > usable_height) {
+            const rows = usable_height -| font_height;
             for (0..rows) |y| for (0..self.surface.width) |x| {
                 const src = (y + font_height) * self.surface.pitch + x * 4;
                 const dst = y * self.surface.pitch + x * 4;
@@ -115,7 +119,7 @@ pub const Console = struct {
             },
             else => {
                 if (self.x + font_width > self.surface.width) self.newline();
-                if (self.y + font_height > self.surface.height) self.newline();
+                if (self.y + font_height > self.surface.height -| self.bottom_padding) self.newline();
                 drawGlyph(self.surface, @intCast(self.x), @intCast(self.y), c, self.fg, self.bg);
                 self.x += font_width;
             },
@@ -164,9 +168,20 @@ test "renders lowercase letters and spaces as distinct readable glyphs" {
     for (mem) |pixel| try std.testing.expectEqual(@as(u8, 0), pixel);
 }
 test "console wraps, backspaces, and scrolls within surface" {
-    var mem: [768]u8 = @splat(0);
-    var s = Surface.init(&mem, 12, 16, 48, rgb).?;
+    var mem: [36 * 40 * 4]u8 = @splat(0);
+    var s = Surface.init(&mem, 36, 40, 36 * 4, rgb).?;
     var c = Console{ .surface = &s };
     c.write("ABC\x08\n123\nXYZ");
     try std.testing.expect(c.x <= s.width and c.y + font_height <= s.height);
+}
+
+test "font uses 18x20 cells and padded console scrolling preserves bottom inset" {
+    try std.testing.expectEqual(@as(usize, 18), font_width);
+    try std.testing.expectEqual(@as(usize, 20), font_height);
+    var mem: [36 * 80 * 4]u8 = @splat(0);
+    var s = Surface.init(&mem, 36, 80, 36 * 4, rgb).?;
+    var c = Console{ .surface = &s, .bottom_padding = font_height };
+    c.write("one\ntwo\nthree\nfour\nfive");
+    try std.testing.expect(c.y + font_height <= s.height - c.bottom_padding);
+    try std.testing.expect(c.x <= s.width);
 }
