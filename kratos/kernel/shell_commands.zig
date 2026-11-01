@@ -3,7 +3,7 @@
 
 pub const max_line_length = 128;
 
-pub const Action = enum { continue_shell, halt };
+pub const Action = enum { continue_shell, halt, kratos };
 
 pub const MemorySummary = struct {
     map_entries: usize = 0,
@@ -29,7 +29,7 @@ pub fn execute(context: *Context, line: []const u8) Error!Action {
     const command = input[0..split];
     const args = if (split < input.len) trim(input[split..]) else "";
     if (eql(command, "help")) {
-        context.write(context.writer_context, "help about echo mem clear halt\r\n");
+        context.write(context.writer_context, "help about echo mem clear kratos halt\r\n");
     } else if (eql(command, "about")) {
         context.write(context.writer_context, "KratOS: a small hobby operating system\r\n");
     } else if (eql(command, "echo")) {
@@ -55,6 +55,8 @@ pub fn execute(context: *Context, line: []const u8) Error!Action {
         context.write(context.writer_context, "\r\n");
     } else if (eql(command, "clear")) {
         context.clear(context.writer_context);
+    } else if (eql(command, "kratos")) {
+        return .kratos;
     } else if (eql(command, "halt")) {
         return .halt;
     } else {
@@ -167,6 +169,7 @@ test "known commands, unknown command, and halt action" {
     var output: TestOutput = .{};
     var context = Context{ .writer_context = &output, .write = TestOutput.write, .clear = TestOutput.clear };
     try std.testing.expectEqual(Action.continue_shell, try execute(&context, "help"));
+    try std.testing.expectEqual(Action.kratos, try execute(&context, "kratos"));
     try std.testing.expectEqual(Action.continue_shell, try execute(&context, "about"));
     try std.testing.expectEqual(Action.continue_shell, try execute(&context, "clear"));
     try std.testing.expectEqual(Action.continue_shell, try execute(&context, "nonesuch arg"));

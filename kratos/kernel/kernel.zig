@@ -7,6 +7,8 @@ const console = @import("console.zig");
 const shell_commands = @import("shell_commands.zig");
 const raster = @import("raster.zig");
 const presentation = @import("presentation.zig");
+const kratos_app = @import("kratos_app.zig");
+const animation = @import("animation.zig");
 
 const max_memory_map_entries = 128;
 
@@ -116,6 +118,72 @@ fn outb(port: u16, value: u8) void {
     );
 }
 
+fn inb(port: u16) u8 {
+    return asm volatile ("inb %dx, %al" : [value] "={al}" (-> u8), : [port] "{dx}" (port));
+}
+
+/// PIT channel 2 one-shot (~20 ms); COM1 remains polled during the wait.
+fn waitFrame() bool {
+    const old = inb(0x61);
+    outb(0x61, old & 0xfc);
+    outb(0x43, 0xb0);
+    const count: u16 = animation.frame_period_ticks;
+    outb(0x42, @truncate(count));
+    outb(0x42, @truncate(count >> 8));
+    outb(0x61, (old & 0xfc) | 1);
+    while ((inb(0x61) & 0x20) == 0) {
+        if (console.tryReadByte()) |byte| if (byte == 'q' or byte == 'Q') {
+            outb(0x61, old);
+            return false;
+        };
+    }
+    outb(0x61, old);
+    return true;
+}
+
+fn readTsc() u64 {
+    const high: u32 = asm volatile ("rdtsc" : [value] "={edx}" (-> u32));
+    const low: u32 = asm volatile ("rdtsc" : [value] "={eax}" (-> u32));
+    return (@as(u64, high) << 32) | low;
+}
+
+fn runKratos() void {
+    console.write("KratOS app: press q to return to shell\r\n");
+    if (framebuffer_console == null) {
+        console.write("KratOS framebuffer unavailable; serial shell remains active\r\n");
+        return;
+    }
+    const display = &framebuffer_console.?;
+    display.clear();
+    display.bg = presentation.background;
+    const cell_w = raster.font_width;
+    const cell_h = raster.font_height;
+    const cols = display.surface.width / cell_w;
+    const rows = display.surface.height / cell_h;
+    if (cols < 5 or rows < 4) {
+        display.fg = presentation.text;
+        display.write("Screen too small\nPress q to return");
+        while (true) if (console.tryReadByte()) |byte| { if (byte == 'q' or byte == 'Q') break; };
+        display.* = presentation.welcome(display.surface);
+        return;
+    }
+    var policy = kratos_app.Policy.init(cols - 4, rows - 3, readTsc());
+    while (true) {
+        display.clear();
+        display.fg = presentation.bright_red;
+        const frame = policy.frame(cols - 4, rows - 3);
+        display.x = frame.x * cell_w;
+        display.y = frame.y * cell_h;
+        display.write(" /A\\\n|o o|\n /V\\");
+        display.fg = presentation.text;
+        display.x = cell_w;
+        display.y = display.surface.height - cell_h;
+        display.write("Q TO EXIT");
+        if (!waitFrame()) break;
+    }
+    display.* = presentation.welcome(display.surface);
+}
+
 fn serialWriteHex(value: u64) void {
     const digits = "0123456789abcdef";
     var shift: u6 = 60;
@@ -183,6 +251,7 @@ fn runShell(memory: shell_commands.MemorySummary) noreturn {
             console.write("Command line too long\r\n");
             continue;
         };
+        if (action == .kratos) { runKratos(); continue; }
         if (action == .halt) {
             console.write("KratOS halted\r\n");
             while (true) asm volatile ("cli; hlt");
