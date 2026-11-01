@@ -8,6 +8,7 @@ const shell_commands = @import("shell_commands.zig");
 const raster = @import("raster.zig");
 const presentation = @import("presentation.zig");
 const kratos_app = @import("kratos_app.zig");
+const input = @import("input.zig");
 const animation = @import("animation.zig");
 
 const max_memory_map_entries = 128;
@@ -35,6 +36,8 @@ var validated_regions: [max_memory_map_entries]memory_map.Region = undefined;
 var allocation_cursors: [max_memory_map_entries]u64 = undefined;
 var frame_allocator: memory_map.FrameAllocator = undefined;
 var shell_writer_context: u8 = 0;
+var keyboard_decoder = input.Decoder{};
+var inputs = input.Inputs{ .serial = .{ .context = &shell_writer_context, .poll = console.pollSerial }, .keyboard = .{ .context = &keyboard_decoder, .poll = pollKeyboard } };
 var framebuffer_surface: ?raster.Surface = null;
 var framebuffer_console: ?raster.Console = null;
 
@@ -122,6 +125,21 @@ fn inb(port: u16) u8 {
     return asm volatile ("inb %dx, %al" : [value] "={al}" (-> u8), : [port] "{dx}" (port));
 }
 
+// Consume at most one controller byte per poll; ignore auxiliary and corrupt bytes.
+fn pollKeyboard(ctx: *anyopaque) ?input.Event {
+    const status = inb(0x64);
+    if ((status & 1) == 0) return null;
+    const scan = inb(0x60);
+    if ((status & 0xe0) != 0) return null;
+    const decoder: *input.Decoder = @ptrCast(@alignCast(ctx));
+    return if (decoder.feed(scan)) |byte| .{ .byte = byte } else null;
+}
+
+fn exitRequested() bool {
+    const event = inputs.poll() orelse return false;
+    return switch (event) { .byte => |byte| byte == 'q' or byte == 'Q', .receive_error => false };
+}
+
 /// PIT channel 2 one-shot (~20 ms); COM1 remains polled during the wait.
 fn waitFrame() bool {
     const old = inb(0x61);
@@ -132,10 +150,10 @@ fn waitFrame() bool {
     outb(0x42, @truncate(count >> 8));
     outb(0x61, (old & 0xfc) | 1);
     while ((inb(0x61) & 0x20) == 0) {
-        if (console.tryReadByte()) |byte| if (byte == 'q' or byte == 'Q') {
+        if (exitRequested()) {
             outb(0x61, old);
             return false;
-        };
+        }
     }
     outb(0x61, old);
     return true;
@@ -163,7 +181,7 @@ fn runKratos() void {
     if (cols < 5 or rows < 4) {
         display.fg = presentation.text;
         display.write("Screen too small\nPress q to return");
-        while (true) if (console.tryReadByte()) |byte| { if (byte == 'q' or byte == 'Q') break; };
+        while (!exitRequested()) {}
         display.* = presentation.welcome(display.surface);
         return;
     }
@@ -255,8 +273,8 @@ fn runShell(memory: shell_commands.MemorySummary) noreturn {
             display.write("kratos> ");
         }
         console.write("kratos> ");
-        const input = console.readLine(&line) orelse continue;
-        const action = shell_commands.execute(&context, input) catch {
+        const line_input = console.readLine(&line, &inputs, &shell_writer_context, writeShellOutput) orelse continue;
+        const action = shell_commands.execute(&context, line_input) catch {
             console.write("Command line too long\r\n");
             continue;
         };
