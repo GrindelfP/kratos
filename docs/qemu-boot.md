@@ -41,8 +41,17 @@ usable physical page frame, installs an IDT for CPU exceptions, then enters a
 bounded serial shell. Type commands in the QEMU terminal and press Enter.
 Built-ins are `help`, `about`, `echo <text>`, `mem`, `clear`, and `halt`;
 unknown commands report an error and return to the prompt. Input is limited to
-128 bytes; extra characters ring the terminal bell until backspace makes room.
-CR, LF, and CRLF line endings are accepted.
+128 bytes. Backspace edits a valid line; exceeding the limit rings the bell and
+discards the entire line through its terminator. UART overrun, parity, framing,
+or break errors likewise ring the bell, discard the damaged line, and print
+`Input error: line discarded` before returning to a clean prompt. CR, LF, and
+CRLF line endings are accepted.
+
+`echo` removes matching single- or double-quote delimiters and preserves the
+other argument bytes, including spaces inside quotes. Empty quoted arguments
+produce an empty line; adjacent quoted/unquoted portions concatenate. Backslash
+escaping is not supported. An unmatched quote prints `echo: unmatched quote`
+without printing a partial argument and the shell remains usable.
 
 Example interaction (memory values depend on the Limine map):
 
@@ -53,6 +62,8 @@ kratos> about
 KratOS: a small hobby operating system
 kratos> echo hello KratOS
 hello KratOS
+kratos> echo 'hello from KratOS'
+hello from KratOS
 kratos> mem
 Memory map entries: <entry count>, usable bytes: <usable byte total>, first usable frame: <frame address>
 kratos> halt
@@ -60,6 +71,23 @@ KratOS halted
 ```
 
 `halt` disables interrupts and halts the CPU.
+
+### Serial shell regression test
+
+After building a BIOS ISO with `./kratos/build-qemu.sh --build-only`, run
+`./kratos/test-serial-shell.sh [path/to/kratos.iso]`. This repeatably boots the
+documented `q35`/256 MiB QEMU configuration and rapidly pastes a 115-byte echo
+command followed by `help` and `about`, tests CRLF, exactly-full and overflowing
+lines, quoted echo, backspace, unknown-command recovery, and halt. The script
+requires `expect` in addition to the QEMU prerequisites and fails on missing
+output, corruption, or a damaged prompt. Unit tests can be run without booting
+QEMU with:
+
+```sh
+zig test kratos/kernel/console.zig
+zig test kratos/kernel/shell_commands.zig
+```
+
 The same QEMU image can test fatal exception reporting: connect to the QEMU
 monitor and issue `nmi`; the diagnostic includes vector 2, error code 0, and the
 interrupted instruction address.

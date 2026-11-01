@@ -23,3 +23,5 @@
 **Next:** Define the smallest user-mode program and syscall milestone, then plan a filesystem/userland path. Keep the serial shell as the recovery/debug console.
 
 2026-11-01 - 13:19 MSK - Planned tickets 0010–0013 for the serial shell input-loss/quoted-echo bug, reusable framebuffer console, Spartan-red branded boot/shell, and animated `kratos` foreground app; updated the roadmap to make these components and user-mode limitations explicit.
+
+2026-11-01 - 13:33 MSK - Fixed ticket 0010 serial input loss by detecting UART receive errors and discarding damaged/over-capacity lines, added allocation-free quoted `echo` parsing and regression tests, and verified the 115-byte rapid-paste/recovery flow in QEMU; documented the root cause and verification.
