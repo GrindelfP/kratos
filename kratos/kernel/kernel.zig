@@ -149,12 +149,12 @@ fn pollKeyboard(ctx: *anyopaque) ?input.Event {
     const scan = inb(0x60);
     if ((status & 0xe0) != 0) return null;
     const decoder: *input.Decoder = @ptrCast(@alignCast(ctx));
-    return if (decoder.feed(scan)) |byte| .{ .byte = byte } else null;
+    return decoder.feed(scan);
 }
 
 fn exitRequested() bool {
     const event = inputs.poll() orelse return false;
-    return switch (event) { .byte => |byte| byte == 'q' or byte == 'Q', .receive_error => false };
+    return switch (event) { .byte => |byte| byte == 'q' or byte == 'Q', else => false };
 }
 
 /// PIT channel 2 one-shot (~20 ms); COM1 remains polled during the wait.

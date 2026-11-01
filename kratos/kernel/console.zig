@@ -3,6 +3,10 @@
 //! rings the bell; backspace can make room again. No allocation is used.
 
 const input = @import("input.zig");
+const shell_edit = @import("shell_edit.zig");
+const commands = @import("shell_commands.zig");
+const std = @import("std");
+var history = shell_edit.History{};
 const com1: u16 = 0x3f8;
 pub const line_capacity = 128;
 var pending_lf_after_cr = false;
@@ -110,9 +114,47 @@ pub fn readLine(buffer: []u8, inputs: *input.Inputs, echo_context: *anyopaque, e
     pending_lf_after_cr = false;
     while (true) {
         const event = inputs.poll() orelse continue;
+        if (event == .up or event == .down) {
+            if (editor.invalid) continue;
+            const replacement = if (event == .up) history.up(editor.bytes[0..editor.len]) else history.down();
+            if (replacement) |line| {
+                for (0..editor.len) |_| echo(echo_context, "\x08 \x08");
+                @memcpy(editor.bytes[0..line.len], line);
+                editor.len = line.len;
+                echo(echo_context, editor.bytes[0..editor.len]);
+            }
+            continue;
+        }
+        if (event == .tab) {
+            if (editor.invalid) continue;
+            switch (shell_edit.complete(editor.bytes[0..editor.len])) {
+                .none => {},
+                .unique => |name| {
+                    var start: usize = 0;
+                    while (start < editor.len and editor.bytes[start] == ' ') : (start += 1) {}
+                    const suffix = name[editor.len - start..];
+                    if (editor.len + suffix.len <= line_capacity) {
+                        @memcpy(editor.bytes[editor.len..][0..suffix.len], suffix);
+                        editor.len += suffix.len;
+                        echo(echo_context, suffix);
+                    }
+                },
+                .ambiguous => |prefix| {
+                    echo(echo_context, "\r\n");
+                    for (commands.names) |name| if (std.mem.startsWith(u8, name, prefix)) {
+                        echo(echo_context, name);
+                        echo(echo_context, " ");
+                    };
+                    echo(echo_context, "\r\nkratos> ");
+                    echo(echo_context, editor.bytes[0..editor.len]);
+                },
+            }
+            continue;
+        }
         const byte = switch (event) {
             .receive_error => { if (editor.markReceiveError()) write("\x07"); continue; },
             .byte => |value| value,
+            else => unreachable,
         };
         switch (editor.input(byte)) {
             .none => {},
@@ -126,6 +168,7 @@ pub fn readLine(buffer: []u8, inputs: *input.Inputs, echo_context: *anyopaque, e
                     echo(echo_context, "Input error: line discarded\r\n");
                     return null;
                 }
+                history.submit(editor.bytes[0..editor.len]);
                 const count = @min(editor.len, buffer.len);
                 @memcpy(buffer[0..count], editor.bytes[0..count]);
                 return buffer[0..count];
