@@ -1,6 +1,6 @@
 # Add a framebuffer-backed raster console
 
-**Status:** complete (host-verified; QEMU verification pending environment prerequisites)
+**Status:** complete; host and BIOS QEMU verified at 1280x800 and 320x200
 
 ## Description
 
@@ -35,21 +35,20 @@ on boot and memory initialization (tickets 0003 and 0005).
 
 Implemented reusable raster primitives in `kratos/kernel/raster.zig`: a
 validated packed 32-bit RGB surface (channel shifts permit RGB/BGR byte order),
-clipped pixel/fill operations, a built-in 6x6-cell bitmap font for A–Z and
-digits (lowercase maps to uppercase), and a bounded text console with clear,
+clipped pixel/fill/fill-rectangle operations, a built-in 12x12-cell bitmap font
+for upper/lowercase letters, digits, spaces, and common punctuation, and a bounded text console with clear,
 wrap, scrolling, CR/LF, backspace, and configurable foreground/background.
 Host tests cover invalid pitch/format/backing extent, clipping, multiple pixel
 channel orders, row padding, and bounded console behavior.
 
 `kernel.zig` owns the Limine request/response boundary and rejects missing,
 empty, unsupported, or malformed framebuffer responses with serial diagnostics;
-serial remains the input and recovery channel. Shell command responses mirror
-to the framebuffer, while prompts and input remain serial-only. QEMU now enables
-its display by default (`QEMU_DISPLAY=none` opts out); no fixed resolution is
-requested. Branding and animation remain explicitly out of scope.
+serial remains the input and recovery channel. Shell prompts and command
+responses mirror to the framebuffer while input remains serial-only. QEMU
+enables its display by default (`QEMU_DISPLAY=none` opts out); no fixed
+resolution is requested. Branding and animation are covered by later tickets.
 
-Host raster/serial-console tests and a direct Zig freestanding kernel compile
-passed. QEMU/ISO and visual verification were not possible in the implementation
-environment because no Limine v12.9.6 release directory was available; see
-[`../qemu-boot.md`](../qemu-boot.md) for the exact verification procedure and
-limitation.
+Host raster/serial-console tests, ISO build, and direct Zig freestanding kernel
+compile passed. BIOS QEMU checks at 1280x800 and 320x200 verified the framebuffer
+console; `-vga none` verified serial fallback. See
+[`../qemu-boot.md`](../qemu-boot.md) for verification details.

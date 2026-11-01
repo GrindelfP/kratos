@@ -60,7 +60,7 @@ without printing a partial argument and the shell remains usable.
 The kernel requests Limine's framebuffer and accepts only a validated 32-bit
 RGB surface with byte-aligned, non-overlapping 8-bit channels. The reusable
 `kratos/kernel/raster.zig` surface checks dimensions, pitch, and backing extent
-before drawing; its 6x6 cell bitmap font renders upper/lowercase letters, digits,
+before drawing; its 12x12 cell bitmap font renders upper/lowercase letters, digits,
 spaces, and common punctuation. The bounded console clips pixels, wraps,
 scrolls, clears, and handles CR/LF/backspace. `presentation.zig` renders a
 responsive KratOS wordmark and welcome screen with a deep-red background,
@@ -86,17 +86,21 @@ Run `./kratos/build-qemu.sh` and inspect the framebuffer at the default mode:
   red-on-dark palette appear before the shell prompt.
 - Confirm `help`, `about`, `echo hello`, `mem`, unknown-command warning, and
   `clear` update framebuffer output; typed input remains visible in serial.
-- Repeat at the smallest practical QEMU mode (at least 320x200) and confirm the
-  wordmark scales down/clips safely while welcome/prompt remain usable.
+- At 320x200, confirm the compact footer, prompt, and scaled wordmark remain
+  legible and do not overlap.
 - Try a very long `echo` response and multiple lines; confirm wrapping/scrolling
   stays within the framebuffer and no ANSI escape glyphs appear.
 - For fallback, boot without a framebuffer response (or with unsupported format)
   and verify the serial diagnostic, prompt, commands, and `clear` notice remain
   available.
 
-Visual QEMU acceptance was not performed in this environment: no Limine release
-directory is configured (`LIMINE_DIR` is unset). Host tests and direct
-freestanding kernel compilation passed; do not treat that as visual verification.
+BIOS QEMU verification passed at 1280x800 using Limine 12.9.6 built from the
+provided source archive. A monitor screenshot confirmed the welcome message,
+Spartan-red logo, readable text, and shell prompt. The serial shell regression
+passed for pasted echo, quoted echo, full/overflow lines, recovery, and halt.
+The same visual acceptance passed at 320x200; the welcome footer uses a compact
+layout at narrow widths. A 320x200 QEMU screenshot confirmed the prompt and
+wordmark remain visible.
 
 ### Foreground KratOS animation
 
@@ -110,26 +114,16 @@ one-shot (~20 ms) for frame pacing, polling COM1 during that interval. Runtime
 direction state is seeded from `RDTSC`; this is a varied local seed, not secure
 entropy. The channel-2/speaker gate state is restored when the app exits.
 
-Manual QEMU checklist (not yet verified in this environment):
-
-- Launch `kratos`; confirm the figure appears on the framebuffer and changes
-  position/direction without leaving the drawable area.
-- Press `q` during movement; confirm the welcome branding and prompt are
-  restored and `help`, `about`, then `halt` still work.
-- Repeat at the smallest practical framebuffer (at least 320x200); inspect
-  edges and verify the figure remains fully visible.
-- Boot without an available framebuffer; confirm `kratos` reports the serial
-  fallback and returns to a usable shell, then run `help` and `halt`.
-
-This manual checklist was not run because `LIMINE_DIR` is unset and the Limine
-v12.9.6 release files are unavailable. Compile/link and host tests are not a
-substitute for these visual and serial-integration checks.
+BIOS QEMU verification at both 1280x800 and 320x200 confirmed the figure is
+visible and bounded, `q` returns to the restored branded shell, and `help` then
+`halt` still work. A separate `-vga none` run confirmed the no-framebuffer
+diagnostic, `kratos` fallback, shell recovery, and halt.
 
 Example interaction (memory values depend on the Limine map):
 
 ```text
 kratos> help
-help about echo mem clear halt
+help about echo mem clear kratos halt
 kratos> about
 KratOS: a small hobby operating system
 kratos> echo hello KratOS

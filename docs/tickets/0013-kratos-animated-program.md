@@ -1,6 +1,6 @@
 # Add the `kratos` animated screen program
 
-**Status:** implemented; QEMU visual verification pending
+**Status:** implemented; BIOS QEMU launch/exit verified at 1280x800 and 320x200
 
 ## Description
 
@@ -45,6 +45,9 @@ Implemented `kratos/kernel/animation.zig` as hardware-independent bounded grid
 movement, edge collision/direction selection, and deterministic xorshift state;
 `kratos_app.zig` exposes a frame policy used by the kernel adapter. The screen
 adapter draws the multi-line Kratos figure with the integrated raster console.
+The framebuffer is cleared once at launch; each frame erases only the previous
+figure's bounded rectangle and redraws the three lines at the same x coordinate.
+This avoids full-screen flashing and keeps multi-line movement coherent.
 Direction tests use explicit seeds. Runtime seed is the x86 `RDTSC` counter
 sampled at launch (not cryptographic entropy); zero is remapped to a fixed
 nonzero xorshift seed.
@@ -61,6 +64,7 @@ Host checks: `zig test kratos/kernel/animation.zig`, `zig test
 kratos/kernel/kratos_app.zig`, `zig test kratos/kernel/shell_commands.zig`,
 `zig test kratos/kernel/console.zig`, and `zig test kratos/kernel/raster.zig`.
 Freestanding x86_64 compile/link passed with the same Zig/Clang flags as
-`kratos/build-qemu.sh`. QEMU launch, movement, `q` exit, subsequent `help`/`about`,
-`halt`, and no-framebuffer serial fallback remain a manual visual/integration
-check because the Limine v12.9.6 release directory is not configured here.
+`kratos/build-qemu.sh`. QEMU BIOS boot at 1280x800 confirmed the moving figure,
+`q` exit, restored prompt, and subsequent `help` and `halt` at both 1280x800 and
+320x200; the serial regression and a separate no-framebuffer fallback run also
+passed. See [`../qemu-boot.md`](../qemu-boot.md) for details.

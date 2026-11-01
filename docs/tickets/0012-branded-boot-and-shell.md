@@ -1,6 +1,6 @@
 # Add the KratOS welcome screen and branded shell
 
-**Status:** implemented; visual QEMU acceptance pending
+**Status:** implemented; visual QEMU acceptance verified at 1280x800 and 320x200
 
 ## Description
 
@@ -41,8 +41,8 @@ responses are drawn without ANSI control sequences. Since input still arrives
 only over COM1, typed characters are echoed on serial. `clear` clears the
 framebuffer and emits a plain-text notice on serial.
 
-Host verification: `zig test kratos/kernel/raster.zig`, `console.zig`,
-`shell_commands.zig`, and `presentation.zig`; freestanding kernel compile/link
-passed. QEMU visual acceptance was not performed: `LIMINE_DIR` is unavailable.
-Use the checklist in [`../qemu-boot.md`](../qemu-boot.md#branded-screen-visual-checklist)
-when Limine v12.9.6 files are available.
+Host verification passed for raster, serial console, shell commands, and
+presentation modules; the freestanding kernel compile/link passed. BIOS QEMU
+screenshots verified the welcome/logo and prompt at 1280x800 and 320x200, and a
+`-vga none` run verified the serial fallback. See the checklist in
+[`../qemu-boot.md`](../qemu-boot.md#branded-screen-visual-checklist).
