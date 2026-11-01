@@ -61,4 +61,4 @@ if [ "${1:-}" = "--build-only" ]; then
   exit 0
 fi
 exec "$QEMU" -M q35 -m 256M -cdrom "$OUT/kratos.iso" -boot order=d \
-  -serial stdio -display none -no-reboot -no-shutdown
+  -serial stdio -display "${QEMU_DISPLAY:-default}" -no-reboot -no-shutdown
