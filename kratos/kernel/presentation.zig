@@ -18,11 +18,11 @@ pub fn welcome(surface: *raster.Surface) raster.Console {
     display.write("WELCOME TO KRATOS\nA small operating system, built to explore.\n\n");
 
     const logo = [_][]const u8{
-        "K  K          OOO   SSS",
-        "K K  rrr a a O   O S   ",
-        "KK   r   aaa O   O  SS ",
-        "K K  r   a a O   O    S",
-        "K  K r   aaa  OOO  SSS ",
+        "K K          t  OOO  SSS",
+        "KK  rr  aa  ttt O O S   ",
+        "K   r  a a   t  O O  SS ",
+        "KK  r  a a   t  O O    S",
+        "K K r   aa    t OOO SSS ",
     };
     const width = logo[0].len * raster.font_width;
     const height = logo.len * raster.font_height;
