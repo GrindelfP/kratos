@@ -1,9 +1,11 @@
 // KratOS minimal freestanding x86-64 kernel entry.
 
+const std = @import("std");
 const memory_map = @import("memory_map.zig");
 const interrupts = @import("interrupts.zig");
 const console = @import("console.zig");
 const shell_commands = @import("shell_commands.zig");
+const raster = @import("raster.zig");
 
 const max_memory_map_entries = 128;
 
@@ -30,9 +32,72 @@ var validated_regions: [max_memory_map_entries]memory_map.Region = undefined;
 var allocation_cursors: [max_memory_map_entries]u64 = undefined;
 var frame_allocator: memory_map.FrameAllocator = undefined;
 var shell_writer_context: u8 = 0;
+var framebuffer_surface: ?raster.Surface = null;
+var framebuffer_console: ?raster.Console = null;
+
+const LimineFramebuffer = extern struct {
+    address: [*]volatile u8,
+    width: u64,
+    height: u64,
+    pitch: u64,
+    bpp: u16,
+    memory_model: u8,
+    red_size: u8,
+    red_shift: u8,
+    green_size: u8,
+    green_shift: u8,
+    blue_size: u8,
+    blue_shift: u8,
+    unused: [7]u8,
+    edid_size: u64,
+    edid: ?*anyopaque,
+};
+const LimineFramebufferResponse = extern struct { revision: u64, framebuffer_count: u64, framebuffers: [*]const *const LimineFramebuffer };
+const LimineFramebufferRequest = extern struct { id: [4]u64, revision: u64, response: ?*const LimineFramebufferResponse };
+export var framebuffer_request: LimineFramebufferRequest linksection(".limine_requests") = .{
+    .id = .{ 0xc7b1dd30df4c8b88, 0x0a82e883a194f07b, 0x9d5827dcd881dd75, 0xa3148604f6fab11b },
+    .revision = 0,
+    .response = null,
+};
+
+fn initializeFramebuffer() void {
+    const response = framebuffer_request.response orelse {
+        console.write("KratOS: framebuffer unavailable; serial console active\r\n");
+        return;
+    };
+    if (response.framebuffer_count == 0) {
+        console.write("KratOS: no framebuffer; serial console active\r\n");
+        return;
+    }
+    const fb = response.framebuffers[0].*;
+    if (fb.bpp != 32 or fb.memory_model != 1 or fb.width > 16384 or fb.height > 16384 or fb.pitch > std.math.maxInt(usize)) {
+        console.write("KratOS: unsupported framebuffer; serial console active\r\n");
+        return;
+    }
+    const size = std.math.mul(usize, @intCast(fb.pitch), @intCast(fb.height)) catch {
+        console.write("KratOS: invalid framebuffer size; serial console active\r\n");
+        return;
+    };
+    const surface = raster.Surface.init(fb.address[0..size], @intCast(fb.width), @intCast(fb.height), @intCast(fb.pitch), .{
+        .red_size = fb.red_size,
+        .red_shift = fb.red_shift,
+        .green_size = fb.green_size,
+        .green_shift = fb.green_shift,
+        .blue_size = fb.blue_size,
+        .blue_shift = fb.blue_shift,
+    }) orelse {
+        console.write("KratOS: malformed framebuffer; serial console active\r\n");
+        return;
+    };
+    framebuffer_surface = surface;
+    framebuffer_console = .{ .surface = &framebuffer_surface.? };
+    framebuffer_console.?.clear();
+    framebuffer_console.?.write("KratOS framebuffer ready\n");
+}
 
 fn writeShellOutput(_: *anyopaque, bytes: []const u8) void {
     console.write(bytes);
+    if (framebuffer_console) |*display| display.write(bytes);
 }
 
 fn outb(port: u16, value: u8) void {
@@ -128,5 +193,6 @@ export fn kratos_kernel_main() noreturn {
     console.write("KratOS: Limine x86_64 kernel entered\r\n");
     interrupts.install();
     const memory = initializeMemoryMap();
+    initializeFramebuffer();
     runShell(memory);
 }

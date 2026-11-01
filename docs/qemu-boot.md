@@ -26,7 +26,9 @@ ZIG=/path/to/zig-0.17.0/bin/zig LIMINE_DIR=/path/to/limine \
 
 The script compiles a freestanding x86-64 ELF, stages the Limine files, creates
 an ISO with xorriso, installs Limine's BIOS stage, then runs QEMU's BIOS path
-(`q35`, 256 MiB) with serial redirected to the terminal. The
+(`q35`, 256 MiB) with its graphical display enabled and serial redirected to
+the terminal. Set `QEMU_DISPLAY=none` for a headless run. Limine selects the
+video mode; the kernel does not prescribe a single resolution. The
 expected initial UART output is:
 
 ```text
@@ -52,6 +54,33 @@ other argument bytes, including spaces inside quotes. Empty quoted arguments
 produce an empty line; adjacent quoted/unquoted portions concatenate. Backslash
 escaping is not supported. An unmatched quote prints `echo: unmatched quote`
 without printing a partial argument and the shell remains usable.
+
+## Framebuffer console
+
+The kernel requests Limine's framebuffer and accepts only a validated 32-bit
+RGB surface with byte-aligned, non-overlapping 8-bit channels. The reusable
+`kratos/kernel/raster.zig` surface checks dimensions, pitch, and backing extent
+before drawing; its 6x6 cell bitmap font renders uppercase letters and digits
+(lowercase is mapped to uppercase). The bounded console clips pixels, wraps,
+scrolls, clears, and handles CR/LF/backspace. Its initial framebuffer message
+is plain infrastructure, not branding or animation. Unsupported or absent
+framebuffer data emits a serial diagnostic and leaves the serial shell
+operational. Shell command output is mirrored to the framebuffer when
+available; prompts and input remain on serial until a keyboard driver exists.
+
+Host validation, from the repository root:
+
+```sh
+zig test kratos/kernel/raster.zig
+zig test kratos/kernel/console.zig
+```
+
+For visual verification, run `./kratos/build-qemu.sh`, confirm the initial
+“KratOS framebuffer ready” message in the QEMU window, and run a command whose
+response is mirrored to the framebuffer. The current environment did not have
+the Limine release directory, so ISO/QEMU boot and visual verification could
+not be performed here. Host tests and direct freestanding kernel compilation
+passed.
 
 Example interaction (memory values depend on the Limine map):
 
