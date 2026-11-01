@@ -28,4 +28,6 @@
 
 2026-11-01 - 13:28 MSK - Implemented ticket 0011's validated Limine RGB framebuffer boundary, reusable raster/font/console module, serial fallback and mirrored shell responses; added host tests and QEMU display/verification documentation. QEMU boot verification remains blocked by the unavailable Limine release files.
 
+2026-11-01 - 13:40 MSK - Integrated tickets 0011–0012 on main after ticket 0010; verified raster, presentation, serial, and shell tests plus a freestanding kernel compile/link, and fixed missing clear callbacks in two shell test contexts. Visual QEMU verification remains blocked by unavailable Limine v12.9.6 files.
+
 2026-11-01 - 13:36 MSK - Implemented ticket 0012's responsive KratOS welcome/logo, Spartan-red framebuffer shell presentation, expanded built-in font, direct framebuffer clear without ANSI escapes, host tests, and a QEMU visual checklist. Host validation and freestanding kernel compile/link passed; QEMU visual verification is pending because LIMINE_DIR is unset.

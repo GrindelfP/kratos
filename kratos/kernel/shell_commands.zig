@@ -193,7 +193,7 @@ test "rejects overlong lines before dispatch" {
 
 test "echo removes matching quote delimiters and preserves argument bytes" {
     var output: TestOutput = .{};
-    var context = Context{ .writer_context = &output, .write = TestOutput.write };
+    var context = Context{ .writer_context = &output, .write = TestOutput.write, .clear = TestOutput.clear };
     const cases = [_][2][]const u8{
         .{ "echo hello world", "hello world\r\n" },
         .{ "echo 'hello world'", "hello world\r\n" },
@@ -210,7 +210,7 @@ test "echo removes matching quote delimiters and preserves argument bytes" {
 
 test "echo rejects unmatched quotes without emitting partial output" {
     var output: TestOutput = .{};
-    var context = Context{ .writer_context = &output, .write = TestOutput.write };
+    var context = Context{ .writer_context = &output, .write = TestOutput.write, .clear = TestOutput.clear };
     try std.testing.expectEqual(Action.continue_shell, try execute(&context, "echo 'unfinished"));
     try std.testing.expectEqualStrings("echo: unmatched quote\r\n", output.contents());
 }
