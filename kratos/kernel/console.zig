@@ -39,6 +39,18 @@ pub fn write(bytes: []const u8) void {
     }
 }
 
+/// Read one UART byte without waiting; animation loops use this to remain
+/// interruptible while preserving the same COM1 receive-error checks.
+pub fn tryReadByte() ?u8 {
+    const status = inb(com1 + 5);
+    if ((status & receive_error_mask) != 0) {
+        _ = inb(com1);
+        return null;
+    }
+    if ((status & 1) == 0) return null;
+    return inb(com1);
+}
+
 const Edit = union(enum) { none, echo: u8, erase, full, done };
 
 const LineEditor = struct {
