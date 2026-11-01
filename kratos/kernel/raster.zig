@@ -149,6 +149,33 @@ pub const Console = struct {
     }
 };
 
+/// A single-row, horizontally scrolling input viewport. The full line remains
+/// in the editor; only its rightmost cells are painted, with no console scroll.
+pub const InputViewport = struct {
+    x: usize,
+    y: usize,
+    columns: usize,
+
+    pub fn begin(console: *Console) InputViewport {
+        const cw = cellWidth(console.glyph_scale);
+        const right = console.surface.width -| console.right_padding;
+        if (console.x + cw > right) console.write("\n");
+        return .{ .x = console.x, .y = console.y, .columns = (right -| console.x) / cw };
+    }
+
+    pub fn redraw(self: InputViewport, console: *Console, line: []const u8) void {
+        const cw = cellWidth(console.glyph_scale);
+        const ch = cellHeight(console.glyph_scale);
+        console.surface.fillRect(self.x, self.y, self.columns * cw, ch, console.bg);
+        const visible = line[line.len - @min(line.len, self.columns)..];
+        for (visible, 0..) |c, i| {
+            drawGlyph(console.surface, @intCast(self.x + i * cw), @intCast(self.y), c, console.fg, console.bg, console.glyph_scale);
+        }
+        console.x = self.x + visible.len * cw;
+        console.y = self.y;
+    }
+};
+
 const rgb = PixelFormat{ .red_size = 8, .red_shift = 16, .green_size = 8, .green_shift = 8, .blue_size = 8, .blue_shift = 0 };
 test "validates pitch, allocation and format; clips drawing" {
     var mem: [64]u8 = @splat(0);
@@ -230,4 +257,33 @@ test "padded console keeps input, backspace, output, clear and scrolling inside 
     c.clear();
     try std.testing.expectEqual(@as(usize, 24), c.x);
     try std.testing.expectEqual(@as(usize, 28), c.y);
+}
+
+test "input viewport replaces long and short lines without stale pixels or padding writes" {
+    const width = 320; const height = 200;
+    var memory: [width * height * 4]u8 = @splat(0);
+    var reference: [width * height * 4]u8 = @splat(0);
+    for ([_]usize{ compact_font_scale, normal_font_scale }) |scale| {
+        @memset(&memory, 0); @memset(&reference, 0);
+        var s = Surface.init(&memory, width, height, width * 4, rgb).?;
+        var r = Surface.init(&reference, width, height, width * 4, rgb).?;
+        var c = Console{ .surface = &s, .glyph_scale = scale, .left_padding = 16, .right_padding = 16, .top_padding = 12, .bottom_padding = 12, .fg = 0xffffff };
+        var expected = Console{ .surface = &r, .glyph_scale = scale, .left_padding = 16, .right_padding = 16, .top_padding = 12, .bottom_padding = 12, .fg = 0xffffff };
+        c.clear(); expected.clear(); c.write("kratos> "); expected.write("kratos> ");
+        const view = InputViewport.begin(&c); const ref_view = InputViewport.begin(&expected);
+        const long = "echo aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaxyz";
+        view.redraw(&c, long);
+        ref_view.redraw(&expected, long[long.len - view.columns..]);
+        try std.testing.expectEqualSlices(u8, &reference, &memory);
+        view.redraw(&c, "echo x");
+        ref_view.redraw(&expected, "echo x");
+        try std.testing.expectEqualSlices(u8, &reference, &memory);
+        view.redraw(&c, long);
+        ref_view.redraw(&expected, long);
+        try std.testing.expectEqualSlices(u8, &reference, &memory);
+        for (0..height) |y| for (0..width) |x| {
+            if (x >= 16 and x < width - 16 and y >= 12 and y < height - 12) continue;
+            try std.testing.expectEqualSlices(u8, &.{ 0, 0, 0, 0 }, memory[(y * width + x) * 4 ..][0..4]);
+        };
+    }
 }

@@ -98,6 +98,26 @@ try:
         ]
     )
     wait_for("\nHello !\n")
+    # A full-capacity draft exceeds all eight compact text rows in the old
+    # wrapping renderer. Screenshot equality checks actual framebuffer redraw,
+    # including removal of stale glyphs, not merely the serial transcript.
+    type_keys(["e", "c", "h", "o", "spc"] + ["a"] * 123)
+    monitor_command("screendump " + base + "-long-draft.ppm")
+    type_keys(["up", "down"])
+    monitor_command("screendump " + base + "-long-restored.ppm")
+    with open(base + "-long-draft.ppm", "rb") as before, open(base + "-long-restored.ppm", "rb") as after:
+        assert before.read() == after.read(), "long draft framebuffer was not restored"
+    type_keys(["backspace", "b", "ret"])
+    long_result = "a" * 122 + "b"
+    wait_for("\n" + long_result + "\n")
+    type_keys(["e", "c", "h", "o", "spc", "x"])
+    monitor_command("screendump " + base + "-short-draft.ppm")
+    type_keys(["up", "down"])
+    monitor_command("screendump " + base + "-short-restored.ppm")
+    with open(base + "-short-draft.ppm", "rb") as before, open(base + "-short-restored.ppm", "rb") as after:
+        assert before.read() == after.read(), "short draft retained stale glyphs"
+    type_keys(["up", "backspace", "c", "ret"])
+    wait_for("\n" + "a" * 122 + "c\n")
     # Complete a unique prefix, then preserve an unsubmitted draft across recall.
     type_keys(["e", "c", "tab", "spc", "d", "r", "a", "f", "t"])
     type_keys(["up", "down", "ret"])
