@@ -6,6 +6,7 @@ const interrupts = @import("interrupts.zig");
 const console = @import("console.zig");
 const shell_commands = @import("shell_commands.zig");
 const raster = @import("raster.zig");
+const presentation = @import("presentation.zig");
 
 const max_memory_map_entries = 128;
 
@@ -90,14 +91,21 @@ fn initializeFramebuffer() void {
         return;
     };
     framebuffer_surface = surface;
-    framebuffer_console = .{ .surface = &framebuffer_surface.? };
-    framebuffer_console.?.clear();
-    framebuffer_console.?.write("KratOS framebuffer ready\n");
+    framebuffer_console = presentation.welcome(&framebuffer_surface.?);
 }
 
 fn writeShellOutput(_: *anyopaque, bytes: []const u8) void {
     console.write(bytes);
-    if (framebuffer_console) |*display| display.write(bytes);
+    if (framebuffer_console) |*display| {
+        if (std.mem.startsWith(u8, bytes, "Unknown command") or std.mem.startsWith(u8, bytes, "Command line too long")) display.fg = presentation.bright_red else display.fg = presentation.text;
+        display.write(bytes);
+        display.fg = presentation.bright_red;
+    }
+}
+
+fn clearShellOutput(_: *anyopaque) void {
+    console.write("[screen cleared]\r\n");
+    if (framebuffer_console) |*display| presentation.clear(display);
 }
 
 fn outb(port: u16, value: u8) void {
@@ -161,9 +169,14 @@ fn runShell(memory: shell_commands.MemorySummary) noreturn {
         .memory = memory,
         .writer_context = &shell_writer_context,
         .write = writeShellOutput,
+        .clear = clearShellOutput,
     };
     var line: [console.line_capacity]u8 = undefined;
     while (true) {
+        if (framebuffer_console) |*display| {
+            display.fg = presentation.bright_red;
+            display.write("kratos> ");
+        }
         console.write("kratos> ");
         const input = console.readLine(&line);
         const action = shell_commands.execute(&context, input) catch {

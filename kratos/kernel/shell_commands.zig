@@ -15,6 +15,7 @@ pub const Context = struct {
     memory: MemorySummary = .{},
     writer_context: *anyopaque,
     write: *const fn (*anyopaque, []const u8) void,
+    clear: *const fn (*anyopaque) void,
 };
 
 pub const Error = error{LineTooLong};
@@ -48,7 +49,7 @@ pub fn execute(context: *Context, line: []const u8) Error!Action {
         }
         context.write(context.writer_context, "\r\n");
     } else if (eql(command, "clear")) {
-        context.write(context.writer_context, "\x1b[2J\x1b[H");
+        context.clear(context.writer_context);
     } else if (eql(command, "halt")) {
         return .halt;
     } else {
@@ -119,11 +120,14 @@ const TestOutput = struct {
     fn contents(self: *const TestOutput) []const u8 {
         return self.bytes[0..self.len];
     }
+    fn clear(raw: *anyopaque) void {
+        TestOutput.write(raw, "[screen cleared]\r\n");
+    }
 };
 
 test "empty and whitespace input are no-ops; command arguments are preserved" {
     var output: TestOutput = .{};
-    var context = Context{ .writer_context = &output, .write = TestOutput.write };
+    var context = Context{ .writer_context = &output, .write = TestOutput.write, .clear = TestOutput.clear };
     try std.testing.expectEqual(Action.continue_shell, try execute(&context, " \t\r\n"));
     try std.testing.expectEqual(@as(usize, 0), output.len);
     try std.testing.expectEqual(Action.continue_shell, try execute(&context, "  echo   hello world  "));
@@ -132,26 +136,27 @@ test "empty and whitespace input are no-ops; command arguments are preserved" {
 
 test "known commands, unknown command, and halt action" {
     var output: TestOutput = .{};
-    var context = Context{ .writer_context = &output, .write = TestOutput.write };
+    var context = Context{ .writer_context = &output, .write = TestOutput.write, .clear = TestOutput.clear };
     try std.testing.expectEqual(Action.continue_shell, try execute(&context, "help"));
     try std.testing.expectEqual(Action.continue_shell, try execute(&context, "about"));
     try std.testing.expectEqual(Action.continue_shell, try execute(&context, "clear"));
     try std.testing.expectEqual(Action.continue_shell, try execute(&context, "nonesuch arg"));
     try std.testing.expectEqual(Action.halt, try execute(&context, "halt"));
     try std.testing.expect(std.mem.indexOf(u8, output.contents(), "Unknown command: nonesuch") != null);
-    try std.testing.expect(std.mem.indexOf(u8, output.contents(), "\x1b[2J\x1b[H") != null);
+    try std.testing.expect(std.mem.indexOf(u8, output.contents(), "\x1b") == null);
+    try std.testing.expect(std.mem.indexOf(u8, output.contents(), "[screen cleared]") != null);
 }
 
 test "mem uses supplied snapshot and formats values" {
     var output: TestOutput = .{};
-    var context = Context{ .writer_context = &output, .write = TestOutput.write, .memory = .{ .map_entries = 3, .usable_bytes = 4096, .first_usable_frame = 0x1234 } };
+    var context = Context{ .writer_context = &output, .write = TestOutput.write, .clear = TestOutput.clear, .memory = .{ .map_entries = 3, .usable_bytes = 4096, .first_usable_frame = 0x1234 } };
     try std.testing.expectEqual(Action.continue_shell, try execute(&context, "mem"));
     try std.testing.expect(std.mem.indexOf(u8, output.contents(), "entries: 3, usable bytes: 4096, first usable frame: 0x0000000000001234") != null);
 }
 
 test "rejects overlong lines before dispatch" {
     var output: TestOutput = .{};
-    var context = Context{ .writer_context = &output, .write = TestOutput.write };
+    var context = Context{ .writer_context = &output, .write = TestOutput.write, .clear = TestOutput.clear };
     const line: [max_line_length + 1]u8 = @splat('x');
     try std.testing.expectError(error.LineTooLong, execute(&context, &line));
     try std.testing.expectEqual(@as(usize, 0), output.len);
