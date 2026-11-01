@@ -1,6 +1,6 @@
 # Add the `kratos` animated screen program
 
-**Status:** planned
+**Status:** implemented; QEMU visual verification pending
 
 ## Description
 
@@ -41,5 +41,26 @@ exit and subsequent shell interaction.
 
 ## Implementation notes
 
-To be completed. Keep animation state/logic separate from framebuffer writes and
-serial input polling so each can be tested and later moved behind a process API.
+Implemented `kratos/kernel/animation.zig` as hardware-independent bounded grid
+movement, edge collision/direction selection, and deterministic xorshift state;
+`kratos_app.zig` exposes a frame policy used by the kernel adapter. The screen
+adapter draws the multi-line Kratos figure with the integrated raster console.
+Direction tests use explicit seeds. Runtime seed is the x86 `RDTSC` counter
+sampled at launch (not cryptographic entropy); zero is remapped to a fixed
+nonzero xorshift seed.
+
+Frame pacing uses PIT channel 2 in one-shot mode, counting 23,864 ticks from the
+approximately 1.193182 MHz PIT base clock (~20 ms). This avoids changing the
+kernel's interrupt/PIC setup. The wait loop polls COM1 every iteration, so `q`
+or `Q` exits during a frame without waiting for a shell line. The prior PIT
+channel-2/speaker gate byte is restored on exit and after each frame. On exit,
+the branded welcome/shell display is redrawn; `halt` and no-framebuffer serial
+fallback are unchanged. No allocations or user-mode/process claims are involved.
+
+Host checks: `zig test kratos/kernel/animation.zig`, `zig test
+kratos/kernel/kratos_app.zig`, `zig test kratos/kernel/shell_commands.zig`,
+`zig test kratos/kernel/console.zig`, and `zig test kratos/kernel/raster.zig`.
+Freestanding x86_64 compile/link passed with the same Zig/Clang flags as
+`kratos/build-qemu.sh`. QEMU launch, movement, `q` exit, subsequent `help`/`about`,
+`halt`, and no-framebuffer serial fallback remain a manual visual/integration
+check because the Limine v12.9.6 release directory is not configured here.

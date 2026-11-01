@@ -41,7 +41,7 @@ kratos>
 prints through COM1 (0x3f8), validates the Limine memory map, allocates one
 usable physical page frame, installs an IDT for CPU exceptions, then enters a
 bounded serial shell. Type commands in the QEMU terminal and press Enter.
-Built-ins are `help`, `about`, `echo <text>`, `mem`, `clear`, and `halt`;
+Built-ins are `help`, `about`, `echo <text>`, `mem`, `clear`, `kratos`, and `halt`;
 unknown commands report an error and return to the prompt. Input is limited to
 128 bytes. Backspace edits a valid line; exceeding the limit rings the bell and
 discards the entire line through its terminator. UART overrun, parity, framing,
@@ -97,6 +97,33 @@ Run `./kratos/build-qemu.sh` and inspect the framebuffer at the default mode:
 Visual QEMU acceptance was not performed in this environment: no Limine release
 directory is configured (`LIMINE_DIR` is unset). Host tests and direct
 freestanding kernel compilation passed; do not treat that as visual verification.
+
+### Foreground KratOS animation
+
+Run `kratos` to start the bounded kernel-mode framebuffer demonstration. Its
+multi-line figure moves within the drawable grid and changes direction at an
+edge. Press `q` or `Q` at any point to return to the branded shell; verify the
+prompt and theme return, then run `help` and `about` before `halt`. No key other
+than the exit key is treated as a shell command while the application is active.
+The app uses PIT channel 2's ~1.193182 MHz base clock with a 23,864-count
+one-shot (~20 ms) for frame pacing, polling COM1 during that interval. Runtime
+direction state is seeded from `RDTSC`; this is a varied local seed, not secure
+entropy. The channel-2/speaker gate state is restored when the app exits.
+
+Manual QEMU checklist (not yet verified in this environment):
+
+- Launch `kratos`; confirm the figure appears on the framebuffer and changes
+  position/direction without leaving the drawable area.
+- Press `q` during movement; confirm the welcome branding and prompt are
+  restored and `help`, `about`, then `halt` still work.
+- Repeat at the smallest practical framebuffer (at least 320x200); inspect
+  edges and verify the figure remains fully visible.
+- Boot without an available framebuffer; confirm `kratos` reports the serial
+  fallback and returns to a usable shell, then run `help` and `halt`.
+
+This manual checklist was not run because `LIMINE_DIR` is unset and the Limine
+v12.9.6 release files are unavailable. Compile/link and host tests are not a
+substitute for these visual and serial-integration checks.
 
 Example interaction (memory values depend on the Limine map):
 
