@@ -1,25 +1,45 @@
 = KratOS =
 
-== The Goal ==
-An exercise to create a minimalistic and, yet, operational operating system. Kratos is my favourite fictional character from the God of War game series. I think, he embodies several great virtues and some of them are persistance and perseverance in reaching the set goals. Those I lack and this OS is also an attempt to practice them. My goal here is to learn how an operating system works by creating one.
+KratOS is a small hobby operating system built to learn how operating systems
+work. The current system is a freestanding x86_64 kernel written in Zig, booted
+with Limine and developed/tested in QEMU.
 
-By now (2025-02-24) I am quite foggy about what this OS will look like and what it will be able to do, but still I have following expectations:
+== Current state ==
 
-1. KratosOS will be a terminal-based OS. Maybe I will make a GUI (Graphical User Interface) but that is highly unlikely.
-2. It should have functionality to boot up, execute basic programs (text editor at least) and support file system. 
-3. The input will be done mainly by keyboard, maybe mouse will be supported but that is also highly unlikely.
-4. The output is done to the display. 
+The kernel boots to a text-oriented framebuffer shell with a multiline ASCII-art
+welcome logo. In the graphical QEMU window, the shell accepts polled PS/2
+keyboard input; COM1 serial input/output remains available for recovery and
+automated testing. Built-in commands include `help`, `about`, `echo`, `mem`,
+`clear`, `kratos`, and `halt`. `kratos` is a bounded kernel-mode animation and
+returns to the shell when `q` is pressed.
 
-Of course these requirements are quite vague and maybe wrong a little, but I want to state here my expectations at the moment when I start the project.
+This is an educational kernel prototype, not a POSIX system. It does not yet
+provide user-mode processes, a filesystem, or arbitrary executable loading.
+Keyboard support currently targets QEMU's translated US PS/2 set-1 layout;
+Caps Lock, extended keys, and non-US layouts are not implemented.
 
-== A little about project structure ==
+== Build and run ==
 
-You may see two directories: 
+Install the prerequisites and obtain the Limine v12.9.6 release files listed in
+link:docs/qemu-boot.md[the QEMU boot guide]. Build and launch the graphical QEMU
+system from the repository root:
 
-- edu,
-- kratos.
+[source,sh]
+----
+LIMINE_DIR=/path/to/limine-binary ./kratos/build-qemu.sh
+----
 
-The *edu* directory contains all the code which I do to learn and implement things required to build skillset for the OS development in my particular case.
+The QEMU window is the KratOS display and keyboard input target. For headless
+serial use, set `QEMU_DISPLAY=none`; serial input remains on the launching
+terminal. See link:docs/qemu-boot.md[the QEMU boot guide] for detailed build,
+interaction, and regression-test instructions.
 
-The *kratos* directory contains everything directly related to the KratOS system.
+== Repository layout ==
 
+- `kratos/` contains the active Zig kernel, QEMU build/run scripts, and tests.
+- `docs/` contains the roadmap, tickets, boot guide, and session log.
+- `legacy/` preserves the earlier learning exercises and unused C kernel stub;
+  these are archived and are not part of the current kernel build.
+
+The original project motivation and early goals are recorded in
+link:devlog.adoc[the development log].

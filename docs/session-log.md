@@ -39,3 +39,5 @@
 2026-11-01 - 14:10 MSK - Implemented ticket 0013's bounded foreground framebuffer animation, independent movement/direction/frame-policy tests, PIT channel-2 pacing with COM1 exit polling, branded shell restoration, and QEMU checklist; host tests and freestanding compile/link passed, visual QEMU checks remain blocked by unavailable Limine files.
 
 2026-11-01 - 15:29 MSK - Completed ticket 0014: added bounded polled PS/2 decoding, fair serial/keyboard arbitration, framebuffer input echo, keyboard app exit, and a text-font ASCII logo. Host tests, freestanding ISO build, serial rapid-paste regression, and monitor-key QEMU tests at 1280x800 and 320x200 passed; inspected welcome and shell screenshots.
+
+2026-11-01 - 15:38 MSK - Updated README.adoc with current KratOS capabilities and QEMU run instructions; summarized Oct 31–Nov 1 development in devlog.adoc; moved edu/ and the obsolete C kernel.c/kernel.h stubs into legacy/ without deleting them; updated AGENTS.md to reflect the archived layout.
