@@ -26,11 +26,11 @@ Build the minimum architecture and kernel mechanisms needed to support a usable 
 
 ### 3. Minimal usable system
 
-Add the first end-to-end interactive experience: a polled serial console, a small command interpreter, and a useful set of built-in commands. This is a kernel shell for the QEMU prototype; user-mode programs remain later work.
+Add the first end-to-end interactive experience: reliable serial input, a small command interpreter, a framebuffer-backed readable console, and a useful set of built-in commands. Keep serial as the debug and recovery path. The shell and first animation run in the kernel execution model; they are not user-mode processes.
 
-**Exit criteria:** QEMU reaches a prompt; users can enter commands and receive predictable responses; line editing and command handling are bounded; a documented demo exercises the shell.
+**Exit criteria:** QEMU presents a branded welcome and reaches a usable prompt; users can enter commands without serial input loss and receive predictable responses; line editing, rendering, and command handling are bounded; the `kratos` animated demo can be launched and exited; a documented demo exercises the system.
 
-**Scope:** serial input/output, a simple line editor, built-in commands, and a kernel command loop. **Non-goals:** keyboard/video drivers, user-mode processes, filesystem, broad application compatibility, polished desktop, or a claim of POSIX completeness.
+**Scope:** serial input/output, framebuffer/raster/font/console interfaces, a simple line editor, built-in commands, boot/shell presentation, a bounded foreground animation, and a kernel command loop. **Non-goals:** keyboard driver, user-mode processes, filesystem, arbitrary executable loading, broad application compatibility, polished desktop, or a claim of POSIX completeness.
 
 ### 4. POSIX and userland growth
 
@@ -50,4 +50,4 @@ Expand from QEMU to selected physical PC hardware and improve installation, reco
 
 ## Near-term tickets
 
-Tickets for stages 1–3 are in [`tickets/`](tickets/). Tickets 0007–0009 deliver the first interactive serial shell; later userland and POSIX work remains roadmap-level until this shell is usable.
+Tickets for stages 1–3 are in [`tickets/`](tickets/). Tickets 0007–0009 delivered the initial serial shell. Tickets 0010–0013 address tester-reported shell input corruption, reusable framebuffer console infrastructure, the branded boot/shell experience, and the animated `kratos` foreground application. User-mode process isolation, executable loading, keyboard input, filesystem, and POSIX work remain later roadmap milestones.
