@@ -71,10 +71,13 @@ without printing a partial argument and the shell remains usable.
 The kernel requests Limine's framebuffer and accepts only a validated 32-bit
 RGB surface with byte-aligned, non-overlapping 8-bit channels. The reusable
 `kratos/kernel/raster.zig` surface checks dimensions, pitch, and backing extent
-before drawing; its 12x12 cell bitmap font renders upper/lowercase letters, digits,
-spaces, and common punctuation. The bounded console clips pixels, wraps,
-scrolls, clears, and handles CR/LF/backspace. `presentation.zig` renders a
-centered multiline ASCII-art KratOS logo and welcome screen with a deep-red background,
+before drawing; its 18x20 cell bitmap font (5x5 source glyphs rendered at 3x3
+pixels per source bit, with cell spacing) renders upper/lowercase letters,
+digits, spaces, and common punctuation. The bounded console clips pixels,
+wraps, scrolls, clears, and handles CR/LF/backspace. The framebuffer shell
+reserves one full 20-pixel cell below its last line; scroll and cursor bounds
+exclude that inset. `presentation.zig` renders a centered multiline ASCII-art
+KratOS logo and welcome screen with a deep-red background,
 Spartan-red logo/prompt, and warm-white output. Unsupported or absent framebuffer
 data emits a serial diagnostic and leaves the serial shell operational. Shell
 prompt, input echo, and command output are mirrored to the framebuffer when
@@ -103,19 +106,20 @@ Run `./kratos/build-qemu.sh` and inspect the framebuffer at the default mode:
   `clear` update framebuffer output; typed input is visible in both outputs.
 - At 320x200, confirm the compact footer, prompt, and ASCII-art logo remain
   legible and do not overlap.
+- At both 1280x800 and 320x200, check that the prompt has a 20-pixel background
+  inset below it and that scrolling never draws into that inset.
 - Try a very long `echo` response and multiple lines; confirm wrapping/scrolling
   stays within the framebuffer and no ANSI escape glyphs appear.
 - For fallback, boot without a framebuffer response (or with unsupported format)
   and verify the serial diagnostic, prompt, commands, and `clear` notice remain
   available.
 
-BIOS QEMU verification passed at 1280x800 using Limine 12.9.6 built from the
-provided source archive. A monitor screenshot confirmed the welcome message,
-Spartan-red logo, readable text, and shell prompt. The serial shell regression
-passed for pasted echo, quoted echo, full/overflow lines, recovery, and halt.
-The same visual acceptance passed at 320x200; the welcome footer uses a compact
-layout at narrow widths. A 320x200 QEMU screenshot confirmed the prompt and
-wordmark remain visible.
+BIOS QEMU verification passed at 1280x800 using Limine 12.9.6. The updated
+18x20 cells make the text visibly larger, and the shell reserves one full cell
+below its final line. At 320x200 the welcome uses a compact three-row ASCII
+wordmark and short footer so the logo, footer, and prompt remain separated.
+Final welcome and post-clear prompt screenshots for both sizes are committed in
+[`docs/screenshots`](screenshots/); they were captured from QEMU and inspected.
 
 ### Foreground KratOS animation
 
@@ -130,8 +134,9 @@ direction state is seeded from `RDTSC`; this is a varied local seed, not secure
 entropy. The channel-2/speaker gate state is restored when the app exits.
 
 BIOS QEMU verification at both 1280x800 and 320x200 confirmed the figure is
-visible and bounded, `q` returns to the restored branded shell, and `help` then
-`halt` still work. A separate `-vga none` run confirmed the no-framebuffer
+visible and bounded within the drawable rows above the shell's reserved bottom
+inset, `q` returns to the restored branded shell, and `help` then `halt` still
+work. A separate `-vga none` run confirmed the no-framebuffer
 diagnostic, `kratos` fallback, shell recovery, and halt.
 
 Example interaction (memory values depend on the Limine map):
@@ -163,12 +168,11 @@ welcome, shell, and app screenshots in a printed temporary directory. It tests
 Backspace, Shift and quoted echo, app exit, shell recovery, and `shutdown`'s
 QEMU process exit/status.
 
-On 2026-11-01, the monitor-key test passed on QEMU 11.1.2 at 1280x800
-and at 320x200 (a separate ISO with Limine `resolution: 320x200x32`).
-Screenshots at both sizes were inspected for the logo and shell input; serial
-output confirmed `help`, `echo "Hello !"`, `kratos`, keyboard `q`, `help`, and
-`shutdown` (QEMU status 33). This tests emulated keyboard delivery, not physical
-keyboard layouts.
+On 2026-11-01, the monitor-key test passed on QEMU at 1280x800 and 320x200 (a
+separate ISO with Limine `resolution: 320x200x32`). It covers Backspace, quoted
+echo, clear, `kratos`, keyboard `q`, shell recovery, and `shutdown` (QEMU status
+33). Screenshots at both sizes were inspected; this tests emulated keyboard
+delivery, not physical keyboard layouts.
 
 ### Serial shell regression test
 

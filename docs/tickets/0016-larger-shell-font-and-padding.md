@@ -1,6 +1,6 @@
 # Improve shell text size and screen padding
 
-**Status:** planned
+**Status:** complete
 
 ## Description
 
@@ -36,6 +36,20 @@ recovery behavior. Builds on tickets 0011–0015.
 
 ## Implementation notes
 
-To be completed. Update any font-size assumptions in raster, presentation,
-console, and animation adapters together; retain safe clipping and responsive
-behavior rather than assuming one framebuffer size.
+Implemented an 18x20 cell font with 3x3 rendering of each 5x5 source glyph and
+a 20-pixel bottom inset. Presentation selects a compact, non-wrapping ASCII
+welcome on narrow/short screens; animation dimensions and its exit label respect
+the same inset. Console wrapping, scrolling, clear, and editing retain bounded
+cell coordinates.
+
+## Verification evidence
+
+- Host tests: raster/font/scroll, presentation layout bounds at 1280x800 and
+  320x200, animation policy, input, and shell command tests passed.
+- Freestanding kernel ELF compiled and linked with Zig 0.17.0 and Clang.
+- QEMU keyboard tests passed at 1280x800 and 320x200: Backspace, quoted echo,
+  clear, `kratos` exit/recovery, and guest `shutdown` (QEMU status 33).
+- QEMU serial regression passed rapid paste, quoted echo, overflow recovery,
+  Backspace, `halt`, and `shutdown` (status 33).
+- Captured and inspected welcome and post-clear shell screenshots at both
+  resolutions: [`screenshots`](../screenshots/).
