@@ -2,6 +2,7 @@
 //! A line holds at most `line_capacity` bytes. Extra input is rejected and
 //! rings the bell; backspace can make room again. No allocation is used.
 
+const input = @import("input.zig");
 const com1: u16 = 0x3f8;
 pub const line_capacity = 128;
 var pending_lf_after_cr = false;
@@ -94,26 +95,35 @@ const LineEditor = struct {
 /// Read one line, polling COM1. Returned bytes exclude the line terminator;
 /// CRLF is treated as one terminator. A UART receive error or capacity overflow
 /// discards the whole line through its terminator and returns null.
-pub fn readLine(buffer: []u8) ?[]u8 {
+pub fn pollSerial(_: *anyopaque) ?input.Event {
+    const status = inb(com1 + 5);
+    if ((status & receive_error_mask) != 0) {
+        if ((status & 1) != 0) _ = inb(com1);
+        return .receive_error;
+    }
+    if ((status & 1) == 0) return null;
+    return .{ .byte = inb(com1) };
+}
+
+pub fn readLine(buffer: []u8, inputs: *input.Inputs, echo_context: *anyopaque, echo: *const fn (*anyopaque, []const u8) void) ?[]u8 {
     var editor = LineEditor{ .previous_was_cr = pending_lf_after_cr };
     pending_lf_after_cr = false;
     while (true) {
-        const status = inb(com1 + 5);
-        if ((status & receive_error_mask) != 0) {
-            if (editor.markReceiveError()) write("\x07");
-        }
-        if ((status & 1) == 0) continue;
-        const action = editor.input(inb(com1));
-        switch (action) {
+        const event = inputs.poll() orelse continue;
+        const byte = switch (event) {
+            .receive_error => { if (editor.markReceiveError()) write("\x07"); continue; },
+            .byte => |value| value,
+        };
+        switch (editor.input(byte)) {
             .none => {},
-            .echo => |byte| write(&.{byte}),
-            .erase => write("\x08 \x08"),
+            .echo => |value| echo(echo_context, &.{value}),
+            .erase => echo(echo_context, "\x08 \x08"),
             .full => write("\x07"),
             .done => {
                 pending_lf_after_cr = editor.previous_was_cr;
-                write("\r\n");
+                echo(echo_context, "\r\n");
                 if (editor.invalid) {
-                    write("Input error: line discarded\r\n");
+                    echo(echo_context, "Input error: line discarded\r\n");
                     return null;
                 }
                 const count = @min(editor.len, buffer.len);

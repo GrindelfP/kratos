@@ -17,15 +17,22 @@ pub fn welcome(surface: *raster.Surface) raster.Console {
     var display = raster.Console{ .surface = surface, .fg = text, .bg = background };
     display.write("WELCOME TO KRATOS\nA small operating system, built to explore.\n\n");
 
-    const scale: usize = if (surface.width >= 720) 5 else if (surface.width >= 480) 3 else if (surface.width >= 220) 2 else 1;
-    const logo_width = 5 * raster.font_width * scale + raster.font_width * scale;
-    const logo_height = raster.font_height * scale;
-    const x = if (surface.width > logo_width) (surface.width - logo_width) / 2 else 0;
-    const y = if (surface.height > logo_height) (surface.height - logo_height) / 2 else 0;
-    var offset: usize = 0;
-    for ("KratOS") |character| {
-        raster.drawGlyphScaled(surface, @intCast(x + offset), @intCast(y), character, red, background, scale);
-        offset += raster.font_width * scale;
+    const logo = [_][]const u8{
+        "K  K          OOO   SSS",
+        "K K  rrr a a O   O S   ",
+        "KK   r   aaa O   O  SS ",
+        "K K  r   a a O   O    S",
+        "K  K r   aaa  OOO  SSS ",
+    };
+    const width = logo[0].len * raster.font_width;
+    const height = logo.len * raster.font_height;
+    const x = (surface.width -| width) / 2;
+    const y = (surface.height -| height) / 2;
+    display.fg = red;
+    for (logo, 0..) |line, row| {
+        display.x = x;
+        display.y = y + row * raster.font_height;
+        display.write(line);
     }
     var shell = raster.Console{ .surface = surface, .fg = text, .bg = background };
     shell.x = raster.font_width;
