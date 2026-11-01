@@ -75,3 +75,14 @@ test "history wraps, retains duplicates, restores draft and does not mutate entr
     try std.testing.expect(h.down() == null);
     try std.testing.expectEqualStrings("same", h.up("new").?);
 }
+
+test "history orders distinct entries and keeps browsing edits separate" {
+    var h = History{};
+    h.submit("first"); h.submit("second"); h.submit("third");
+    try std.testing.expectEqualStrings("third", h.up("unfinished").?);
+    try std.testing.expectEqualStrings("second", h.up("modified third").?);
+    try std.testing.expectEqualStrings("first", h.up("modified second").?);
+    try std.testing.expectEqualStrings("second", h.down().?);
+    try std.testing.expectEqualStrings("third", h.down().?);
+    try std.testing.expectEqualStrings("unfinished", h.down().?);
+}

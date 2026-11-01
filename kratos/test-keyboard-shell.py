@@ -98,6 +98,20 @@ try:
         ]
     )
     wait_for("\nHello !\n")
+    # Complete a unique prefix, then preserve an unsubmitted draft across recall.
+    type_keys(["e", "c", "tab", "spc", "d", "r", "a", "f", "t"])
+    type_keys(["up", "down", "ret"])
+    wait_for("\ndraft\n")
+    type_keys(["up", "ret"])
+    for _ in range(100):
+        if read_log().count("\ndraft\n") == 2:
+            break
+        time.sleep(0.1)
+    else:
+        raise AssertionError("recalled command did not execute twice: " + read_log())
+    type_keys(["h", "tab"])
+    wait_for("help halt ")
+    type_keys(["e", "l", "p", "ret"])
     type_keys(["c", "l", "e", "a", "r", "ret"])
     wait_for("[screen cleared]")
     time.sleep(0.2)
@@ -116,7 +130,7 @@ try:
     status = process.wait(timeout=5)
     assert status == 33, f"unexpected QEMU shutdown status: {status}"
     data = read_log()
-    assert data.count("help about echo mem clear kratos halt shutdown") == 2, data
+    assert data.count("help about echo mem clear kratos halt shutdown") == 3, data
     print(data)
     print("QEMU exited via guest shutdown with status 33.")
     print("Screenshots and serial output:", os.path.dirname(base))

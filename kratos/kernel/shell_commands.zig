@@ -29,11 +29,11 @@ pub fn execute(context: *Context, line: []const u8) Error!Action {
     const split = indexWhitespace(input);
     const command = input[0..split];
     const args = if (split < input.len) trim(input[split..]) else "";
-    if (eql(command, "help")) {
+    if (eql(command, names[0])) {
         context.write(context.writer_context, "help about echo mem clear kratos halt shutdown\r\n");
-    } else if (eql(command, "about")) {
+    } else if (eql(command, names[1])) {
         context.write(context.writer_context, "KratOS: a small hobby operating system\r\n");
-    } else if (eql(command, "echo")) {
+    } else if (eql(command, names[2])) {
         var decoded: [max_line_length]u8 = undefined;
         const text = decodeEcho(args, &decoded) catch {
             context.write(context.writer_context, "echo: unmatched quote\r\n");
@@ -41,7 +41,7 @@ pub fn execute(context: *Context, line: []const u8) Error!Action {
         };
         context.write(context.writer_context, text);
         context.write(context.writer_context, "\r\n");
-    } else if (eql(command, "mem")) {
+    } else if (eql(command, names[3])) {
         context.write(context.writer_context, "Memory map entries: ");
         writeDecimal(context, context.memory.map_entries);
         context.write(context.writer_context, ", usable bytes: ");
@@ -54,13 +54,13 @@ pub fn execute(context: *Context, line: []const u8) Error!Action {
             context.write(context.writer_context, "none");
         }
         context.write(context.writer_context, "\r\n");
-    } else if (eql(command, "clear")) {
+    } else if (eql(command, names[4])) {
         context.clear(context.writer_context);
-    } else if (eql(command, "kratos")) {
+    } else if (eql(command, names[5])) {
         return .kratos;
-    } else if (eql(command, "halt")) {
+    } else if (eql(command, names[6])) {
         return .halt;
-    } else if (eql(command, "shutdown")) {
+    } else if (eql(command, names[7])) {
         return .shutdown;
     } else {
         context.write(context.writer_context, "Unknown command: ");

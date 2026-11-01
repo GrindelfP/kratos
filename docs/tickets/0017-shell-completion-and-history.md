@@ -1,6 +1,6 @@
 # Add shell command completion and history
 
-**Status:** planned
+**Status:** in progress — compact long-line redraw needs further work
 
 ## Description
 
@@ -41,7 +41,8 @@ QEMU keyboard path from tickets 0010, 0014, and 0016.
 
 ## Implementation notes
 
-To be completed. Keep editing/history/completion policy testable independently
-from port I/O and framebuffer drawing. Redraw the edited prompt line without
-leaving stale characters on screen, including under the current padded viewport
-and 24x28 standard font / compact 320x200 font.
+Implemented allocation-free 16-entry history, retaining duplicate non-blank submissions and overwriting the oldest on wrap. Tab uses the built-in command table; Up/Down preserve the draft and copy entries before editing. Extended set-1 make codes produce semantic events.
+
+2026-11-01: host tests passed for the hardware-independent modules; the Zig 0.17.0 freestanding ISO built. Monitor `sendkey` regression passed at 1280x800 and 320x200 for completion, draft restoration, recalled execution, editing, app exit and shutdown (status 33). Serial rapid-paste, editing, overflow, halt and shutdown regressions passed.
+
+Remaining: backspace-based redraw cannot reconstruct the prompt and scrolled-off portion when an input spans more than the entire compact viewport. The padded raster remains bounded, but the visual replacement acceptance criterion is not established for that case; add a viewport-aware redraw and an explicit long-line visual regression before marking done.
