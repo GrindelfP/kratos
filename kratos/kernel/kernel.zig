@@ -191,10 +191,12 @@ fn runKratos() void {
     const display = &framebuffer_console.?;
     display.clear();
     display.bg = presentation.background;
-    const cell_w = raster.font_width;
-    const cell_h = raster.font_height;
-    const cols = display.surface.width / cell_w;
-    const rows = (display.surface.height -| display.bottom_padding) / cell_h;
+    const cell_w = raster.cellWidth(display.glyph_scale);
+    const cell_h = raster.cellHeight(display.glyph_scale);
+    const left = display.left_padding;
+    const top = display.top_padding;
+    const cols = (display.surface.width -| left -| display.right_padding) / cell_w;
+    const rows = (display.surface.height -| top -| display.bottom_padding) / cell_h;
     if (cols < 5 or rows < 4) {
         display.fg = presentation.text;
         display.write("Screen too small\nPress q to return");
@@ -204,14 +206,14 @@ fn runKratos() void {
     }
     var policy = kratos_app.Policy.init(cols - 4, rows - 3, readTsc());
     display.fg = presentation.text;
-    display.x = cell_w;
-    display.y = rows * cell_h -| cell_h;
+    display.x = left;
+    display.y = top + rows * cell_h -| cell_h;
     display.write("Q TO EXIT");
     var frame = policy.frame(cols - 4, rows - 3);
     drawKratosFigure(display, frame.x, frame.y);
     while (true) {
         if (!waitFrame()) break;
-        display.surface.fillRect(frame.x * cell_w, frame.y * cell_h, 5 * cell_w, 3 * cell_h, presentation.background);
+        display.surface.fillRect(left + frame.x * cell_w, top + frame.y * cell_h, 5 * cell_w, 3 * cell_h, presentation.background);
         frame = policy.frame(cols - 4, rows - 3);
         drawKratosFigure(display, frame.x, frame.y);
     }
@@ -222,8 +224,8 @@ fn drawKratosFigure(display: *raster.Console, x: usize, y: usize) void {
     display.fg = presentation.bright_red;
     const lines = [_][]const u8{ " /A\\", "|o o|", " /V\\" };
     for (lines, 0..) |line, row| {
-        display.x = x * raster.font_width;
-        display.y = (y + row) * raster.font_height;
+        display.x = display.left_padding + x * raster.cellWidth(display.glyph_scale);
+        display.y = display.top_padding + (y + row) * raster.cellHeight(display.glyph_scale);
         display.write(line);
     }
 }

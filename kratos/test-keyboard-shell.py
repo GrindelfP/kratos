@@ -108,6 +108,7 @@ try:
     monitor_command("screendump " + base + "-app.ppm")
     key("q")
     time.sleep(0.5)
+    monitor_command("screendump " + base + "-return.ppm")
     type_keys(["h", "e", "l", "p", "ret"])
     wait_for("help about echo mem clear kratos halt shutdown")
     type_keys(["s", "h", "u", "t", "d", "o", "w", "n", "ret"])
