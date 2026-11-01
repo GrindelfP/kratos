@@ -56,6 +56,8 @@
 
 2026-11-01 - 17:32 MSK - Created ticket 0017 for bounded shell command-name Tab completion and Up/Down command history, including extended keyboard events, draft restoration, redraw behavior, and QEMU keyboard regression criteria.
 
+2026-11-01 - 17:46 MSK - Reviewed and integrated ticket 0017's Tab completion and bounded Up/Down history into main. Fixed-size 16-entry history preserves drafts and duplicates; Tab completes built-in command prefixes; horizontally scrolling input redraw supports full-capacity lines. Host tests, freestanding build, QEMU keyboard tests, and serial/shutdown regressions passed; feature branch changes are now part of the normal main build.
+
 2026-11-01 - 16:47 MSK - Verified the revised ticket 0016 build: all framebuffer/layout/input/app host tests passed, the freestanding kernel compiled and linked, keyboard regressions passed at 1280x800 and 320x200, and serial editing/overflow/halt/shutdown regressions passed (QEMU shutdown status 33); inspected fresh welcome, clear, and animation screenshots.
 
 2026-11-01 - 17:39 MSK - Implemented ticket 0017 keyboard Tab completion and bounded 16-entry Up/Down history with draft restoration; host tests, freestanding ISO, serial regression, and monitor-key tests at 1280x800 and 320x200 passed. Ticket remains in progress: redraw of lines longer than the compact visible viewport needs a viewport-aware solution and visual regression.

@@ -1,6 +1,6 @@
 # Add shell command completion and history
 
-**Status:** in progress
+**Status:** complete
 
 ## Description
 
@@ -45,4 +45,4 @@ Implemented allocation-free 16-entry history, retaining duplicate non-blank subm
 
 2026-11-01: host tests passed for the hardware-independent modules; the Zig 0.17.0 freestanding ISO built. Monitor `sendkey` regression passed at 1280x800 and 320x200 for completion, draft restoration, recalled execution, editing, app exit and shutdown (status 33). Serial rapid-paste, editing, overflow, halt and shutdown regressions passed.
 
-2026-11-01 follow-up: framebuffer input now uses a single-row horizontally scrolling viewport, leaving the full 128-byte line in the editor. Redraw clears the entire input region before rendering the visible suffix, without altering padded margins. Host raster tests compare long/short redraw pixels and margins at both font scales. QEMU monitor-key tests passed at 1280x800 and 320x200 with a 128-byte draft, Up/Down, screenshot equality after long/short draft restoration, editing and execution of a recalled line; existing app-exit and shutdown checks passed. Freestanding ISO, host modules and serial rapid-paste/overflow/halt/shutdown regressions passed. Ticket remains in progress as requested.
+2026-11-01 follow-up: framebuffer input now uses a single-row horizontally scrolling viewport, leaving the full 128-byte line in the editor. Redraw clears the entire input region before rendering the visible suffix, without altering padded margins. Host raster tests compare long/short redraw pixels and margins at both font scales. QEMU monitor-key tests passed at 1280x800 and 320x200 with a 128-byte draft, Up/Down, screenshot equality after long/short draft restoration, editing and execution of a recalled line; existing app-exit and shutdown checks passed. Freestanding ISO, host modules and serial rapid-paste/overflow/halt/shutdown regressions passed. Integrated into `main` after rerunning host tests, ISO build, keyboard regression, and serial/shutdown regression.
