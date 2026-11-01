@@ -54,4 +54,6 @@
 
 2026-11-01 - 16:41 MSK - Revised ticket 0016 after visual feedback: enlarged standard glyphs to 24x28 cells, added 50-pixel all-edge padding with a 16x12-pixel compact 320x200 mode, preserved the padded cursor after clear, bounded animation and console scrolling to the viewport, and captured fresh QEMU screenshots at both resolutions.
 
+2026-11-01 - 17:32 MSK - Created ticket 0017 for bounded shell command-name Tab completion and Up/Down command history, including extended keyboard events, draft restoration, redraw behavior, and QEMU keyboard regression criteria.
+
 2026-11-01 - 16:47 MSK - Verified the revised ticket 0016 build: all framebuffer/layout/input/app host tests passed, the freestanding kernel compiled and linked, keyboard regressions passed at 1280x800 and 320x200, and serial editing/overflow/halt/shutdown regressions passed (QEMU shutdown status 33); inspected fresh welcome, clear, and animation screenshots.
