@@ -12,12 +12,14 @@ existing ASCII-art text presentation.
 
 ## Acceptance criteria
 
-- Shell glyphs are visibly taller/larger than the current 12x12-pixel cells at
-  the standard QEMU display mode; the selected cell dimensions are documented.
-- The final shell line and prompt have at least one full line-height of visible
-  background beneath them, rather than touching the framebuffer's bottom edge.
-- Shell scrolling and cursor bounds account for the larger font and bottom
-  inset; command output, typed echo, Backspace, and `clear` remain correct.
+- Shell glyphs use documented larger 24x28 cells at 1280x800, with 18x20
+  compact cells at 320x200.
+- The entire standard-resolution interface has a 50-pixel inset from every
+  edge. Compact mode uses responsive 16-pixel horizontal and 12-pixel vertical
+  insets at 320x200.
+- The prompt/input row has a visible baseline and bottom margin; scrolling and
+  cursor bounds stay inside the inset viewport. Output, typed echo, Backspace,
+  and clear remain correct, and clear preserves the padded cursor origin.
 - The welcome logo, tagline, and prompt remain legible and non-overlapping at
   both 1280x800 and 320x200. Narrow layouts may use a compact logo/layout while
   continuing to render text rather than a pixel wordmark.
@@ -36,20 +38,23 @@ recovery behavior. Builds on tickets 0011–0015.
 
 ## Implementation notes
 
-Implemented an 18x20 cell font with 3x3 rendering of each 5x5 source glyph and
-a 20-pixel bottom inset. Presentation selects a compact, non-wrapping ASCII
-welcome on narrow/short screens; animation dimensions and its exit label respect
-the same inset. Console wrapping, scrolling, clear, and editing retain bounded
-cell coordinates.
+Follow-up implementation uses a normal 24x28 cell font (4x4 glyph pixels) and
+50-pixel padding on all four edges at 1280x800. At 320x200 it selects 18x20
+cells (3x3 glyph pixels), compact two-row ASCII welcome, and 16x12-pixel insets;
+50 pixels on each side would make the minimum display unusable. The framebuffer
+console carries a bounded padded viewport, so clear returns to its inset origin
+and wrap/scroll/editing cannot write into the margins. The animation uses this
+same viewport and font scale.
 
 ## Verification evidence
 
-- Host tests: raster/font/scroll, presentation layout bounds at 1280x800 and
-  320x200, animation policy, input, and shell command tests passed.
+- Host tests: normal/compact glyph dimensions, all four inset bounds, console
+  input/backspace/output/scroll/clear bounds, welcome/clear cursor placement at
+  1280x800 and 320x200, animation policy, input, and shell command tests passed.
 - Freestanding kernel ELF compiled and linked with Zig 0.17.0 and Clang.
 - QEMU keyboard tests passed at 1280x800 and 320x200: Backspace, quoted echo,
   clear, `kratos` exit/recovery, and guest `shutdown` (QEMU status 33).
 - QEMU serial regression passed rapid paste, quoted echo, overflow recovery,
   Backspace, `halt`, and `shutdown` (status 33).
-- Captured and inspected welcome and post-clear shell screenshots at both
-  resolutions: [`screenshots`](../screenshots/).
+- Captured and inspected fresh welcome and post-clear prompt screenshots after
+  this follow-up at both resolutions: [`screenshots`](../screenshots/).
