@@ -29,8 +29,14 @@ pub fn welcome(surface: *raster.Surface) raster.Console {
     }
     var shell = raster.Console{ .surface = surface, .fg = text, .bg = background };
     shell.x = raster.font_width;
-    shell.y = surface.height -| (raster.font_height * 3);
-    shell.write("SPARTAN-RED CONSOLE  |  TYPE HELP");
+    shell.y = surface.height -| (raster.font_height * 2);
+    if (surface.width < 480) {
+        shell.write("SPARTAN RED | HELP");
+    } else {
+        shell.write("SPARTAN-RED CONSOLE  |  TYPE HELP");
+    }
+    shell.x = raster.font_width;
+    shell.y = surface.height -| raster.font_height;
     shell.fg = bright_red;
     return shell;
 }

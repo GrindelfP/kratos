@@ -39,7 +39,7 @@ expect {
     timeout { puts stderr "prompt was damaged after the long echo"; exit 1 }
 }
 expect {
-    "help about echo mem clear halt" {}
+    "help about echo mem clear kratos halt" {}
     timeout { puts stderr "command after pasted echo did not execute cleanly"; exit 1 }
 }
 expect {

@@ -32,9 +32,15 @@ pub const Surface = struct {
     pub fn fill(self: *Surface, color: Color) void {
         for (0..self.height) |y| for (0..self.width) |x| self.pixel(@intCast(x), @intCast(y), color);
     }
+    pub fn fillRect(self: *Surface, x: usize, y: usize, width: usize, height: usize, color: Color) void {
+        if (x >= self.width or y >= self.height) return;
+        const right = x + @min(width, self.width - x);
+        const bottom = y + @min(height, self.height - y);
+        for (y..bottom) |row| for (x..right) |column| self.pixel(@intCast(column), @intCast(row), color);
+    }
 };
 
-// Five columns, five rows plus spacing; lowercase uses readable uppercase fallback.
+// Five-by-five bitmap glyphs are doubled into the 12x12 cell for readability.
 const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
 const glyphs = [_][5]u8{
     .{ 14, 17, 17, 31, 17 }, .{ 30, 17, 17, 30, 17 }, .{ 14, 17, 16, 16, 14 }, .{ 30, 17, 17, 17, 30 }, .{ 31, 16, 16, 30, 31 }, .{ 31, 16, 16, 30, 16 }, .{ 14, 17, 16, 23, 15 }, .{ 17, 17, 31, 17, 17 }, .{ 14, 4, 4, 4, 14 },    .{ 7, 2, 2, 18, 12 },   .{ 17, 18, 28, 18, 17 }, .{ 16, 16, 16, 16, 31 }, .{ 17, 27, 21, 17, 17 }, .{ 17, 25, 21, 19, 17 }, .{ 14, 17, 17, 17, 14 }, .{ 30, 17, 17, 30, 16 }, .{ 14, 17, 17, 21, 10 }, .{ 30, 17, 17, 30, 17 }, .{ 15, 16, 14, 1, 30 }, .{ 31, 4, 4, 4, 4 }, .{ 17, 17, 17, 17, 14 }, .{ 17, 17, 17, 10, 4 }, .{ 17, 17, 21, 21, 10 }, .{ 17, 10, 4, 10, 17 }, .{ 17, 10, 4, 4, 4 }, .{ 31, 2, 4, 8, 31 },
@@ -43,8 +49,8 @@ const glyphs = [_][5]u8{
 const lowercase_glyphs = [_][5]u8{
     .{ 0, 14, 1, 15, 15 }, .{ 16, 16, 30, 17, 30 }, .{ 0, 14, 16, 16, 14 }, .{ 1, 1, 15, 17, 15 }, .{ 0, 14, 31, 16, 14 }, .{ 6, 8, 28, 8, 8 }, .{ 0, 15, 17, 15, 1 }, .{ 16, 16, 30, 17, 17 }, .{ 4, 0, 12, 4, 14 }, .{ 2, 0, 2, 2, 18 }, .{ 16, 18, 28, 18, 17 }, .{ 12, 4, 4, 4, 14 }, .{ 0, 26, 21, 21, 21 }, .{ 0, 30, 17, 17, 17 }, .{ 0, 14, 17, 17, 14 }, .{ 0, 30, 17, 30, 16 }, .{ 0, 15, 17, 15, 1 }, .{ 0, 22, 24, 16, 16 }, .{ 0, 15, 24, 7, 30 }, .{ 8, 28, 8, 8, 6 }, .{ 0, 17, 17, 19, 13 }, .{ 0, 17, 17, 10, 4 }, .{ 0, 17, 21, 21, 10 }, .{ 0, 17, 10, 4, 10 }, .{ 0, 17, 17, 15, 1 }, .{ 0, 31, 2, 4, 31 },
 };
-pub const font_width = 6;
-pub const font_height = 6;
+pub const font_width = 12;
+pub const font_height = 12;
 pub fn drawGlyph(surface: *Surface, x: isize, y: isize, byte: u8, fg: Color, bg: Color) void {
     const index = std.mem.indexOfScalar(u8, alphabet, byte);
     const lower_index = if (byte >= 'a' and byte <= 'z') @as(usize, byte - 'a') else null;
@@ -53,7 +59,9 @@ pub fn drawGlyph(surface: *Surface, x: isize, y: isize, byte: u8, fg: Color, bg:
     };
     const rows = if (index) |i| glyphs[i] else if (lower_index) |i| lowercase_glyphs[i] else special orelse .{ 0, 0, 0, 0, 0 };
     for (0..font_height) |row| for (0..font_width) |col| {
-        const on = row < 5 and col < 5 and (rows[row] & (@as(u8, 1) << @intCast(4 - col))) != 0;
+        const glyph_row = row / 2;
+        const glyph_col = col / 2;
+        const on = glyph_row < 5 and glyph_col < 5 and (rows[glyph_row] & (@as(u8, 1) << @intCast(4 - glyph_col))) != 0;
         surface.pixel(x + @as(isize, @intCast(col)), y + @as(isize, @intCast(row)), if (on) fg else bg);
     };
 }
@@ -64,7 +72,7 @@ pub fn drawGlyphScaled(surface: *Surface, x: isize, y: isize, byte: u8, fg: Colo
     var scratch = Surface.init(&base, font_width, font_height, font_width * 4, .{ .red_size = 8, .red_shift = 16, .green_size = 8, .green_shift = 8, .blue_size = 8, .blue_shift = 0 }).?;
     drawGlyph(&scratch, 0, 0, byte, fg, bg);
     for (0..font_height) |row| for (0..font_width) |col| {
-        const pixel = (@as(usize, @intCast(base[(row * font_width + col) * 4])) << 16) | (@as(usize, @intCast(base[(row * font_width + col) * 4 + 1])) << 8) | base[(row * font_width + col) * 4 + 2];
+        const pixel = (@as(usize, @intCast(base[(row * font_width + col) * 4 + 2])) << 16) | (@as(usize, @intCast(base[(row * font_width + col) * 4 + 1])) << 8) | base[(row * font_width + col) * 4];
         for (0..scale) |dy| for (0..scale) |dx| surface.pixel(x + @as(isize, @intCast(col * scale + dx)), y + @as(isize, @intCast(row * scale + dy)), @intCast(pixel));
     };
 }
@@ -131,6 +139,17 @@ test "supports alternate RGB channel byte order without touching row padding" {
     s.pixel(0, 0, 0x123456);
     try std.testing.expectEqualSlices(u8, &.{ 0x12, 0x34, 0x56, 0 }, mem[0..4]);
     try std.testing.expectEqual(@as(u8, 0xaa), mem[4]);
+}
+test "scaled glyph preserves RGB channel order and clipped fillRect stays bounded" {
+    var mem: [12 * 12 * 4]u8 = @splat(0xaa);
+    var s = Surface.init(&mem, 12, 12, 12 * 4, .{ .red_size = 8, .red_shift = 16, .green_size = 8, .green_shift = 8, .blue_size = 8, .blue_shift = 0 }).?;
+    drawGlyphScaled(&s, 0, 0, 'K', 0xe34234, 0x140d0d, 1);
+    try std.testing.expectEqualSlices(u8, &.{ 0x34, 0x42, 0xe3, 0 }, mem[0..4]);
+    var rect_mem: [12 * 12 * 4]u8 = @splat(0xaa);
+    var rect_surface = Surface.init(&rect_mem, 12, 12, 12 * 4, .{ .red_size = 8, .red_shift = 16, .green_size = 8, .green_shift = 8, .blue_size = 8, .blue_shift = 0 }).?;
+    rect_surface.fillRect(10, 10, std.math.maxInt(usize), std.math.maxInt(usize), 0x123456);
+    try std.testing.expectEqual(@as(u8, 0x12), rect_mem[(10 * 12 + 10) * 4 + 2]);
+    try std.testing.expectEqual(@as(u8, 0xaa), rect_mem[(9 * 12 + 10) * 4]);
 }
 test "renders lowercase letters and spaces as distinct readable glyphs" {
     var mem: [font_width * font_height * 4]u8 = @splat(0);
