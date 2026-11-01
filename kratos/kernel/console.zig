@@ -165,6 +165,7 @@ pub fn readLine(buffer: []u8, inputs: *input.Inputs, echo_context: *anyopaque, e
                 pending_lf_after_cr = editor.previous_was_cr;
                 echo(echo_context, "\r\n");
                 if (editor.invalid) {
+                    history.selected = 0;
                     echo(echo_context, "Input error: line discarded\r\n");
                     return null;
                 }

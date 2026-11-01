@@ -50,7 +50,15 @@ unknown commands report an error and return to the prompt. Input is limited to
 discards the entire line through its terminator. UART overrun, parity, framing,
 or break errors likewise ring the bell, discard the damaged line, and print
 `Input error: line discarded` before returning to a clean prompt. CR, LF, and
-CRLF line endings are accepted.
+CRLF line endings are accepted. Keyboard Tab completes a unique built-in first-token
+prefix; ambiguous prefixes list matches. Up/Down browse the 16 most recent
+non-blank submitted lines and Down past the newest restores the draft. Duplicate
+submissions are retained; the oldest entry is overwritten when history fills.
+Editing a recalled line does not change its stored entry. These keys are for the
+PS/2 keyboard path; serial input remains the existing byte-oriented interface.
+On a compact screen, a line that has scrolled completely beyond the visible
+viewport cannot be fully erased in place when recalled; use shorter lines for
+reliable visual redraw.
 
 `halt` disables guest interrupts and halts the CPU; it does not close the QEMU
 process. `shutdown` writes the 32-bit value `0x10` to the QEMU `isa-debug-exit`
@@ -86,7 +94,7 @@ absent framebuffer data emits a serial diagnostic and leaves the serial shell
 operational. Shell prompt, input echo, and command output are mirrored to the
 framebuffer when available and to serial. The polled i8042 keyboard path decodes translated
 PS/2 set-1 make/break codes with independent left/right Shift, US letters and
-punctuation, Enter and Backspace. Extended keys, Caps Lock, other modifiers,
+punctuation, Enter, Backspace, Tab and extended Up/Down. Other extended keys, Caps Lock, other modifiers,
 and non-US layouts are not implemented. Each poll consumes at most one keyboard
 byte and alternates source priority; absent keyboard input does not block COM1.
 `clear` clears the framebuffer directly and uses a plain text serial notice (no
@@ -172,7 +180,8 @@ After building the ISO, run `python3 kratos/test-keyboard-shell.py [path/to/krat
 The script uses monitor `sendkey` to generate keyboard events, never injects
 serial input, checks serial output as an independent observation, and retains
 welcome, shell, and app screenshots in a printed temporary directory. It tests
-Backspace, Shift and quoted echo, app exit, shell recovery, and `shutdown`'s
+Backspace, Shift and quoted echo, Tab completion, history and draft restoration,
+recalled command execution, app exit, shell recovery, and `shutdown`'s
 QEMU process exit/status.
 
 On 2026-11-01, the monitor-key test passed on QEMU at 1280x800 and 320x200 (a
@@ -197,6 +206,7 @@ booting QEMU with:
 zig test kratos/kernel/console.zig
 zig test kratos/kernel/input.zig
 zig test kratos/kernel/shell_commands.zig
+zig test kratos/kernel/shell_edit.zig
 ```
 
 The same QEMU image can test fatal exception reporting: connect to the QEMU
