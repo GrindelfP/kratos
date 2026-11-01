@@ -1,6 +1,6 @@
 # Add the KratOS welcome screen and branded shell
 
-**Status:** planned
+**Status:** implemented; visual QEMU acceptance pending
 
 ## Description
 
@@ -31,5 +31,18 @@ readability or the existing recovery console. Depends on ticket 0011.
 
 ## Implementation notes
 
-To be completed. A serial terminal cannot select the user's font; the built-in
-font is rendered by KratOS itself on the framebuffer.
+`kratos/kernel/presentation.zig` owns the welcome layout, responsive scaled
+`KratOS` wordmark, and palette: deep Spartan red `#140D0D` background,
+`#E34234` logo, `#FF6B5B` prompt/warnings, and warm `#F3E8DF` normal output.
+The reusable raster font now renders lower-case and common punctuation as well
+as uppercase, digits, and blank spaces; the kernel retains serial diagnostics and
+the serial shell when framebuffer setup fails. Framebuffer prompts and command
+responses are drawn without ANSI control sequences. Since input still arrives
+only over COM1, typed characters are echoed on serial. `clear` clears the
+framebuffer and emits a plain-text notice on serial.
+
+Host verification: `zig test kratos/kernel/raster.zig`, `console.zig`,
+`shell_commands.zig`, and `presentation.zig`; freestanding kernel compile/link
+passed. QEMU visual acceptance was not performed: `LIMINE_DIR` is unavailable.
+Use the checklist in [`../qemu-boot.md`](../qemu-boot.md#branded-screen-visual-checklist)
+when Limine v12.9.6 files are available.

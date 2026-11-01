@@ -60,13 +60,16 @@ without printing a partial argument and the shell remains usable.
 The kernel requests Limine's framebuffer and accepts only a validated 32-bit
 RGB surface with byte-aligned, non-overlapping 8-bit channels. The reusable
 `kratos/kernel/raster.zig` surface checks dimensions, pitch, and backing extent
-before drawing; its 6x6 cell bitmap font renders uppercase letters and digits
-(lowercase is mapped to uppercase). The bounded console clips pixels, wraps,
-scrolls, clears, and handles CR/LF/backspace. Its initial framebuffer message
-is plain infrastructure, not branding or animation. Unsupported or absent
-framebuffer data emits a serial diagnostic and leaves the serial shell
-operational. Shell command output is mirrored to the framebuffer when
-available; prompts and input remain on serial until a keyboard driver exists.
+before drawing; its 6x6 cell bitmap font renders upper/lowercase letters, digits,
+spaces, and common punctuation. The bounded console clips pixels, wraps,
+scrolls, clears, and handles CR/LF/backspace. `presentation.zig` renders a
+responsive KratOS wordmark and welcome screen with a deep-red background,
+Spartan-red logo/prompt, and warm-white output. Unsupported or absent framebuffer
+data emits a serial diagnostic and leaves the serial shell operational. Shell
+prompt and command output are mirrored to the framebuffer when available; input
+and typed-character echo remain on serial until a keyboard driver exists.
+`clear` clears the framebuffer directly and uses a plain text serial notice (no
+ANSI sequences are sent to the framebuffer).
 
 Host validation, from the repository root:
 
@@ -75,12 +78,25 @@ zig test kratos/kernel/raster.zig
 zig test kratos/kernel/console.zig
 ```
 
-For visual verification, run `./kratos/build-qemu.sh`, confirm the initial
-“KratOS framebuffer ready” message in the QEMU window, and run a command whose
-response is mirrored to the framebuffer. The current environment did not have
-the Limine release directory, so ISO/QEMU boot and visual verification could
-not be performed here. Host tests and direct freestanding kernel compilation
-passed.
+### Branded screen visual checklist
+
+Run `./kratos/build-qemu.sh` and inspect the framebuffer at the default mode:
+
+- Confirm the welcome heading, legible `KratOS` logo, warm-white tagline, and
+  red-on-dark palette appear before the shell prompt.
+- Confirm `help`, `about`, `echo hello`, `mem`, unknown-command warning, and
+  `clear` update framebuffer output; typed input remains visible in serial.
+- Repeat at the smallest practical QEMU mode (at least 320x200) and confirm the
+  wordmark scales down/clips safely while welcome/prompt remain usable.
+- Try a very long `echo` response and multiple lines; confirm wrapping/scrolling
+  stays within the framebuffer and no ANSI escape glyphs appear.
+- For fallback, boot without a framebuffer response (or with unsupported format)
+  and verify the serial diagnostic, prompt, commands, and `clear` notice remain
+  available.
+
+Visual QEMU acceptance was not performed in this environment: no Limine release
+directory is configured (`LIMINE_DIR` is unset). Host tests and direct
+freestanding kernel compilation passed; do not treat that as visual verification.
 
 Example interaction (memory values depend on the Limine map):
 

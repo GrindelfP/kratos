@@ -27,3 +27,5 @@
 2026-11-01 - 13:33 MSK - Fixed ticket 0010 serial input loss by detecting UART receive errors and discarding damaged/over-capacity lines, added allocation-free quoted `echo` parsing and regression tests, and verified the 115-byte rapid-paste/recovery flow in QEMU; documented the root cause and verification.
 
 2026-11-01 - 13:28 MSK - Implemented ticket 0011's validated Limine RGB framebuffer boundary, reusable raster/font/console module, serial fallback and mirrored shell responses; added host tests and QEMU display/verification documentation. QEMU boot verification remains blocked by the unavailable Limine release files.
+
+2026-11-01 - 13:36 MSK - Implemented ticket 0012's responsive KratOS welcome/logo, Spartan-red framebuffer shell presentation, expanded built-in font, direct framebuffer clear without ANSI escapes, host tests, and a QEMU visual checklist. Host validation and freestanding kernel compile/link passed; QEMU visual verification is pending because LIMINE_DIR is unset.
