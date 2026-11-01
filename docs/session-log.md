@@ -49,3 +49,7 @@
 2026-11-01 - 16:12 MSK - Created ticket 0016 to increase shell font size and add a full-line-height bottom inset, with responsive 1280x800/320x200 layout, scrolling, and screenshot acceptance criteria.
 
 2026-11-01 - 16:22 MSK - Implemented ticket 0016 with 18x20 shell cells, a full-cell bottom inset, compact small-screen ASCII welcome, and inset-aware animation layout; passed host tests, freestanding compile/link, QEMU keyboard and serial/shutdown regressions, and inspected committed 1280x800/320x200 screenshots.
+
+2026-11-01 - 16:41 MSK - Revised ticket 0016 after visual feedback: enlarged standard glyphs to 24x28 cells, added 50-pixel all-edge padding with a 16x12-pixel compact 320x200 mode, preserved the padded cursor after clear, bounded animation and console scrolling to the viewport, and captured fresh QEMU screenshots at both resolutions.
+
+2026-11-01 - 16:47 MSK - Verified the revised ticket 0016 build: all framebuffer/layout/input/app host tests passed, the freestanding kernel compiled and linked, keyboard regressions passed at 1280x800 and 320x200, and serial editing/overflow/halt/shutdown regressions passed (QEMU shutdown status 33); inspected fresh welcome, clear, and animation screenshots.

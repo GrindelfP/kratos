@@ -71,17 +71,20 @@ without printing a partial argument and the shell remains usable.
 The kernel requests Limine's framebuffer and accepts only a validated 32-bit
 RGB surface with byte-aligned, non-overlapping 8-bit channels. The reusable
 `kratos/kernel/raster.zig` surface checks dimensions, pitch, and backing extent
-before drawing; its 18x20 cell bitmap font (5x5 source glyphs rendered at 3x3
-pixels per source bit, with cell spacing) renders upper/lowercase letters,
-digits, spaces, and common punctuation. The bounded console clips pixels,
-wraps, scrolls, clears, and handles CR/LF/backspace. The framebuffer shell
-reserves one full 20-pixel cell below its last line; scroll and cursor bounds
-exclude that inset. `presentation.zig` renders a centered multiline ASCII-art
-KratOS logo and welcome screen with a deep-red background,
-Spartan-red logo/prompt, and warm-white output. Unsupported or absent framebuffer
-data emits a serial diagnostic and leaves the serial shell operational. Shell
-prompt, input echo, and command output are mirrored to the framebuffer when
-available and to serial. The polled i8042 keyboard path decodes translated
+before drawing; its normal 24x28 cell font (5x5 source glyphs rendered at 4x4
+pixels per source bit) renders upper/lowercase letters, digits, spaces, and
+common punctuation. Compact layouts use 18x20 cells at 3x3 pixels per source
+bit. The bounded console clips pixels, wraps, scrolls, clears, and handles
+CR/LF/backspace. At 1280x800, the welcome, prompt, input echo, output, and
+animation use a 50-pixel inset on all four edges. At 320x200, compact text uses
+16-pixel horizontal and 12-pixel vertical insets so the interface remains
+usable. Clear resets to the padded console origin rather than (0,0), and
+scrolling is constrained to the padded viewport. `presentation.zig` renders a
+centered multiline ASCII-art KratOS logo and welcome screen with a deep-red
+background, Spartan-red logo/prompt, and warm-white output. Unsupported or
+absent framebuffer data emits a serial diagnostic and leaves the serial shell
+operational. Shell prompt, input echo, and command output are mirrored to the
+framebuffer when available and to serial. The polled i8042 keyboard path decodes translated
 PS/2 set-1 make/break codes with independent left/right Shift, US letters and
 punctuation, Enter and Backspace. Extended keys, Caps Lock, other modifiers,
 and non-US layouts are not implemented. Each poll consumes at most one keyboard
@@ -93,6 +96,7 @@ Host validation, from the repository root:
 
 ```sh
 zig test kratos/kernel/raster.zig
+zig test kratos/kernel/presentation.zig
 zig test kratos/kernel/console.zig
 ```
 
@@ -106,20 +110,22 @@ Run `./kratos/build-qemu.sh` and inspect the framebuffer at the default mode:
   `clear` update framebuffer output; typed input is visible in both outputs.
 - At 320x200, confirm the compact footer, prompt, and ASCII-art logo remain
   legible and do not overlap.
-- At both 1280x800 and 320x200, check that the prompt has a 20-pixel background
-  inset below it and that scrolling never draws into that inset.
+- At 1280x800, confirm all UI content stays within 50 pixels of each edge; at
+  320x200 confirm the compact 16x12-pixel insets, prompt baseline, and bottom
+  margin.
 - Try a very long `echo` response and multiple lines; confirm wrapping/scrolling
   stays within the framebuffer and no ANSI escape glyphs appear.
 - For fallback, boot without a framebuffer response (or with unsupported format)
   and verify the serial diagnostic, prompt, commands, and `clear` notice remain
   available.
 
-BIOS QEMU verification passed at 1280x800 using Limine 12.9.6. The updated
-18x20 cells make the text visibly larger, and the shell reserves one full cell
-below its final line. At 320x200 the welcome uses a compact three-row ASCII
-wordmark and short footer so the logo, footer, and prompt remain separated.
-Final welcome and post-clear prompt screenshots for both sizes are committed in
-[`docs/screenshots`](screenshots/); they were captured from QEMU and inspected.
+Fresh BIOS QEMU captures verified at 1280x800 and 320x200. Normal 24x28 cells
+and 50-pixel edge insets are used at 1280x800; the 320x200 compact mode uses
+18x20 cells, 16-pixel horizontal insets, and 12-pixel vertical insets (literal
+50-pixel padding would leave too few columns and rows for a usable shell). The
+initial prompt remains inset at the bottom of the welcome, and `clear` returns
+the prompt to the inset top-left origin. Fresh welcome and post-clear screenshots for both sizes are committed
+in [`docs/screenshots`](screenshots/) and were inspected.
 
 ### Foreground KratOS animation
 
@@ -129,15 +135,16 @@ edge. Press `q` or `Q` at any point to return to the branded shell; verify the
 prompt and theme return, then run `help` and `about` before `halt`. No key other
 than the exit key is treated as a shell command while the application is active.
 The app uses PIT channel 2's ~1.193182 MHz base clock with a 23,864-count
-one-shot (~20 ms) for frame pacing, polling keyboard and COM1 during that interval. Runtime
-direction state is seeded from `RDTSC`; this is a varied local seed, not secure
+one-shot (~20 ms) for frame pacing, polling keyboard and COM1 during that
+interval. Runtime direction state is seeded from `RDTSC`; this is a varied
+local seed, not secure
 entropy. The channel-2/speaker gate state is restored when the app exits.
 
 BIOS QEMU verification at both 1280x800 and 320x200 confirmed the figure is
-visible and bounded within the drawable rows above the shell's reserved bottom
-inset, `q` returns to the restored branded shell, and `help` then `halt` still
-work. A separate `-vga none` run confirmed the no-framebuffer
-diagnostic, `kratos` fallback, shell recovery, and halt.
+visible and bounded within the padded drawable region, `q` returns to the
+restored inset shell, and `help` then `halt` still work. A separate `-vga none`
+run confirmed the no-framebuffer diagnostic, `kratos` fallback, shell recovery,
+and halt.
 
 Example interaction (memory values depend on the Limine map):
 
