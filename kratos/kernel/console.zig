@@ -109,7 +109,12 @@ pub fn pollSerial(_: *anyopaque) ?input.Event {
     return .{ .byte = inb(com1) };
 }
 
-pub fn readLine(buffer: []u8, inputs: *input.Inputs, echo_context: *anyopaque, echo: *const fn (*anyopaque, []const u8) void) ?[]u8 {
+pub const InputDisplay = struct {
+    begin: *const fn () void,
+    redraw: *const fn ([]const u8) void,
+};
+pub fn readLine(buffer: []u8, inputs: *input.Inputs, echo_context: *anyopaque, echo: *const fn (*anyopaque, []const u8) void, display: InputDisplay) ?[]u8 {
+    display.begin();
     var editor = LineEditor{ .previous_was_cr = pending_lf_after_cr };
     pending_lf_after_cr = false;
     while (true) {
@@ -118,10 +123,11 @@ pub fn readLine(buffer: []u8, inputs: *input.Inputs, echo_context: *anyopaque, e
             if (editor.invalid) continue;
             const replacement = if (event == .up) history.up(editor.bytes[0..editor.len]) else history.down();
             if (replacement) |line| {
-                for (0..editor.len) |_| echo(echo_context, "\x08 \x08");
+                for (0..editor.len) |_| write("\x08 \x08");
                 @memcpy(editor.bytes[0..line.len], line);
                 editor.len = line.len;
-                echo(echo_context, editor.bytes[0..editor.len]);
+                write(editor.bytes[0..editor.len]);
+                display.redraw(editor.bytes[0..editor.len]);
             }
             continue;
         }
@@ -136,7 +142,8 @@ pub fn readLine(buffer: []u8, inputs: *input.Inputs, echo_context: *anyopaque, e
                     if (editor.len + suffix.len <= line_capacity) {
                         @memcpy(editor.bytes[editor.len..][0..suffix.len], suffix);
                         editor.len += suffix.len;
-                        echo(echo_context, suffix);
+                        write(suffix);
+                        display.redraw(editor.bytes[0..editor.len]);
                     }
                 },
                 .ambiguous => |prefix| {
@@ -146,7 +153,9 @@ pub fn readLine(buffer: []u8, inputs: *input.Inputs, echo_context: *anyopaque, e
                         echo(echo_context, " ");
                     };
                     echo(echo_context, "\r\nkratos> ");
-                    echo(echo_context, editor.bytes[0..editor.len]);
+                    display.begin();
+                    write(editor.bytes[0..editor.len]);
+                    display.redraw(editor.bytes[0..editor.len]);
                 },
             }
             continue;
@@ -158,8 +167,8 @@ pub fn readLine(buffer: []u8, inputs: *input.Inputs, echo_context: *anyopaque, e
         };
         switch (editor.input(byte)) {
             .none => {},
-            .echo => |value| echo(echo_context, &.{value}),
-            .erase => echo(echo_context, "\x08 \x08"),
+            .echo => |value| { write(&.{value}); display.redraw(editor.bytes[0..editor.len]); },
+            .erase => { write("\x08 \x08"); display.redraw(editor.bytes[0..editor.len]); },
             .full => write("\x07"),
             .done => {
                 pending_lf_after_cr = editor.previous_was_cr;

@@ -59,3 +59,5 @@
 2026-11-01 - 16:47 MSK - Verified the revised ticket 0016 build: all framebuffer/layout/input/app host tests passed, the freestanding kernel compiled and linked, keyboard regressions passed at 1280x800 and 320x200, and serial editing/overflow/halt/shutdown regressions passed (QEMU shutdown status 33); inspected fresh welcome, clear, and animation screenshots.
 
 2026-11-01 - 17:39 MSK - Implemented ticket 0017 keyboard Tab completion and bounded 16-entry Up/Down history with draft restoration; host tests, freestanding ISO, serial regression, and monitor-key tests at 1280x800 and 320x200 passed. Ticket remains in progress: redraw of lines longer than the compact visible viewport needs a viewport-aware solution and visual regression.
+
+2026-11-01 - 17:43 MSK - Fixed ticket 0017 long-line framebuffer redraw using a bounded horizontal input viewport; host raster pixel/margin tests, freestanding build, serial regression and QEMU monitor-key long/short draft screenshot comparisons and recalled execution passed at 1280x800 and 320x200. Ticket remains in progress as requested.

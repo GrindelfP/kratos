@@ -42,6 +42,7 @@ var keyboard_decoder = input.Decoder{};
 var inputs = input.Inputs{ .serial = .{ .context = &shell_writer_context, .poll = console.pollSerial }, .keyboard = .{ .context = &keyboard_decoder, .poll = pollKeyboard } };
 var framebuffer_surface: ?raster.Surface = null;
 var framebuffer_console: ?raster.Console = null;
+var input_viewport: ?raster.InputViewport = null;
 
 const LimineFramebuffer = extern struct {
     address: [*]volatile u8,
@@ -108,6 +109,18 @@ fn writeShellOutput(_: *anyopaque, bytes: []const u8) void {
         display.write(bytes);
         display.fg = presentation.bright_red;
     }
+}
+
+fn beginShellInput() void {
+    if (framebuffer_console) |*display| input_viewport = raster.InputViewport.begin(display);
+}
+
+fn redrawShellInput(line: []const u8) void {
+    if (framebuffer_console) |*display| if (input_viewport) |viewport| {
+        display.fg = presentation.text;
+        viewport.redraw(display, line);
+        display.fg = presentation.bright_red;
+    };
 }
 
 fn clearShellOutput(_: *anyopaque) void {
@@ -292,7 +305,7 @@ fn runShell(memory: shell_commands.MemorySummary) noreturn {
             display.write("kratos> ");
         }
         console.write("kratos> ");
-        const line_input = console.readLine(&line, &inputs, &shell_writer_context, writeShellOutput) orelse continue;
+        const line_input = console.readLine(&line, &inputs, &shell_writer_context, writeShellOutput, .{ .begin = beginShellInput, .redraw = redrawShellInput }) orelse continue;
         const action = shell_commands.execute(&context, line_input) catch {
             console.write("Command line too long\r\n");
             continue;

@@ -56,9 +56,9 @@ non-blank submitted lines and Down past the newest restores the draft. Duplicate
 submissions are retained; the oldest entry is overwritten when history fills.
 Editing a recalled line does not change its stored entry. These keys are for the
 PS/2 keyboard path; serial input remains the existing byte-oriented interface.
-On a compact screen, a line that has scrolled completely beyond the visible
-viewport cannot be fully erased in place when recalled; use shorter lines for
-reliable visual redraw.
+Framebuffer input uses a single-row horizontal viewport: the prompt stays visible
+and the rightmost input characters are shown as a long line is edited or recalled.
+The complete line remains available for submission, up to the 128-byte limit.
 
 `halt` disables guest interrupts and halts the CPU; it does not close the QEMU
 process. `shutdown` writes the 32-bit value `0x10` to the QEMU `isa-debug-exit`
@@ -181,7 +181,8 @@ The script uses monitor `sendkey` to generate keyboard events, never injects
 serial input, checks serial output as an independent observation, and retains
 welcome, shell, and app screenshots in a printed temporary directory. It tests
 Backspace, Shift and quoted echo, Tab completion, history and draft restoration,
-recalled command execution, app exit, shell recovery, and `shutdown`'s
+recalled command execution, a full-capacity draft and short/long history redraw
+with framebuffer screenshot comparisons, app exit, shell recovery, and `shutdown`'s
 QEMU process exit/status.
 
 On 2026-11-01, the monitor-key test passed on QEMU at 1280x800 and 320x200 (a
