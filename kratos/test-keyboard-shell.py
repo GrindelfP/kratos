@@ -98,6 +98,9 @@ try:
         ]
     )
     wait_for("\nHello !\n")
+    type_keys(["c", "l", "e", "a", "r", "ret"])
+    wait_for("[screen cleared]")
+    time.sleep(0.2)
     monitor_command("screendump " + base + "-shell.ppm")
     type_keys(["k", "r", "a", "t", "o", "s", "ret"])
     wait_for("KratOS app: press q")

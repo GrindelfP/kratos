@@ -194,7 +194,7 @@ fn runKratos() void {
     const cell_w = raster.font_width;
     const cell_h = raster.font_height;
     const cols = display.surface.width / cell_w;
-    const rows = display.surface.height / cell_h;
+    const rows = (display.surface.height -| display.bottom_padding) / cell_h;
     if (cols < 5 or rows < 4) {
         display.fg = presentation.text;
         display.write("Screen too small\nPress q to return");
@@ -205,7 +205,7 @@ fn runKratos() void {
     var policy = kratos_app.Policy.init(cols - 4, rows - 3, readTsc());
     display.fg = presentation.text;
     display.x = cell_w;
-    display.y = display.surface.height - cell_h;
+    display.y = rows * cell_h -| cell_h;
     display.write("Q TO EXIT");
     var frame = policy.frame(cols - 4, rows - 3);
     drawKratosFigure(display, frame.x, frame.y);
