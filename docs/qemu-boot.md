@@ -51,6 +51,13 @@ or break errors likewise ring the bell, discard the damaged line, and print
 `Input error: line discarded` before returning to a clean prompt. CR, LF, and
 CRLF line endings are accepted.
 
+`halt` disables guest interrupts and halts the CPU; it does not close the QEMU
+process. To end the current demo, close the QEMU window or press Ctrl+C in the
+host terminal that launched QEMU. KratOS cannot send Ctrl+C to its host process.
+A guest `shutdown` command using an explicit QEMU exit device is planned in
+[`tickets/0015-qemu-shutdown-command.md`](tickets/0015-qemu-shutdown-command.md);
+it is not a portable hardware poweroff mechanism.
+
 `echo` removes matching single- or double-quote delimiters and preserves the
 other argument bytes, including spaces inside quotes. Empty quoted arguments
 produce an empty line; adjacent quoted/unquoted portions concatenate. Backslash
@@ -142,7 +149,8 @@ kratos> halt
 KratOS halted
 ```
 
-`halt` disables interrupts and halts the CPU.
+`halt` disables interrupts and halts the CPU, leaving QEMU itself running. Use
+the host-side close/Ctrl+C procedure above to terminate QEMU.
 
 ### Keyboard shell regression test
 
