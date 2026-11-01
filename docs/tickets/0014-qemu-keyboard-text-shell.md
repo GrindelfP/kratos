@@ -1,6 +1,6 @@
 # Make the text shell interactive from the QEMU window
 
-**Status:** planned
+**Status:** done
 
 ## Description
 
@@ -42,5 +42,15 @@ Builds on tickets 0010–0013.
 
 ## Implementation notes
 
-To be completed. The QEMU serial path must remain available for automation and
-recovery, but normal interaction must work directly in the QEMU window.
+Implemented a bounded translated set-1 PS/2 decoder, fair serial/keyboard input
+boundary, framebuffer input echo, and shared app-exit polling. The ASCII-art
+logo uses the regular text font. Keyboard handling assumes the QEMU BIOS i8042
+configuration; Caps Lock, non-US layouts, and extended keys are unsupported.
+
+Host input, console, presentation, raster, commands, animation, app, and memory
+map tests passed; the freestanding kernel compiled and linked. QEMU 11.1.2
+monitor `sendkey` tests at 1280x800 and 320x200 passed Backspace, `help`,
+`echo "Hello !"`, `kratos`, keyboard `q`, subsequent `help`, and `halt` with
+serial used only for observation. Welcome and shell screenshots were inspected
+at both sizes. The existing serial rapid-paste regression also passed. See
+`docs/qemu-boot.md` for the repeatable monitor test and limitations.

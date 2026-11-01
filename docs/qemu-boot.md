@@ -40,7 +40,9 @@ kratos>
 `./kratos/build-qemu.sh --build-only` stops after ISO creation. The kernel
 prints through COM1 (0x3f8), validates the Limine memory map, allocates one
 usable physical page frame, installs an IDT for CPU exceptions, then enters a
-bounded serial shell. Type commands in the QEMU terminal and press Enter.
+bounded shell. Click the graphical QEMU window and type commands there; release
+QEMU keyboard capture using its displayed host-key shortcut. Alternatively type
+into the serial terminal for recovery and automation.
 Built-ins are `help`, `about`, `echo <text>`, `mem`, `clear`, `kratos`, and `halt`;
 unknown commands report an error and return to the prompt. Input is limited to
 128 bytes. Backspace edits a valid line; exceeding the limit rings the bell and
@@ -63,11 +65,15 @@ RGB surface with byte-aligned, non-overlapping 8-bit channels. The reusable
 before drawing; its 12x12 cell bitmap font renders upper/lowercase letters, digits,
 spaces, and common punctuation. The bounded console clips pixels, wraps,
 scrolls, clears, and handles CR/LF/backspace. `presentation.zig` renders a
-responsive KratOS wordmark and welcome screen with a deep-red background,
+centered multiline ASCII-art KratOS logo and welcome screen with a deep-red background,
 Spartan-red logo/prompt, and warm-white output. Unsupported or absent framebuffer
 data emits a serial diagnostic and leaves the serial shell operational. Shell
-prompt and command output are mirrored to the framebuffer when available; input
-and typed-character echo remain on serial until a keyboard driver exists.
+prompt, input echo, and command output are mirrored to the framebuffer when
+available and to serial. The polled i8042 keyboard path decodes translated
+PS/2 set-1 make/break codes with independent left/right Shift, US letters and
+punctuation, Enter and Backspace. Extended keys, Caps Lock, other modifiers,
+and non-US layouts are not implemented. Each poll consumes at most one keyboard
+byte and alternates source priority; absent keyboard input does not block COM1.
 `clear` clears the framebuffer directly and uses a plain text serial notice (no
 ANSI sequences are sent to the framebuffer).
 
@@ -85,8 +91,8 @@ Run `./kratos/build-qemu.sh` and inspect the framebuffer at the default mode:
 - Confirm the welcome heading, legible `KratOS` logo, warm-white tagline, and
   red-on-dark palette appear before the shell prompt.
 - Confirm `help`, `about`, `echo hello`, `mem`, unknown-command warning, and
-  `clear` update framebuffer output; typed input remains visible in serial.
-- At 320x200, confirm the compact footer, prompt, and scaled wordmark remain
+  `clear` update framebuffer output; typed input is visible in both outputs.
+- At 320x200, confirm the compact footer, prompt, and ASCII-art logo remain
   legible and do not overlap.
 - Try a very long `echo` response and multiple lines; confirm wrapping/scrolling
   stays within the framebuffer and no ANSI escape glyphs appear.
@@ -110,7 +116,7 @@ edge. Press `q` or `Q` at any point to return to the branded shell; verify the
 prompt and theme return, then run `help` and `about` before `halt`. No key other
 than the exit key is treated as a shell command while the application is active.
 The app uses PIT channel 2's ~1.193182 MHz base clock with a 23,864-count
-one-shot (~20 ms) for frame pacing, polling COM1 during that interval. Runtime
+one-shot (~20 ms) for frame pacing, polling keyboard and COM1 during that interval. Runtime
 direction state is seeded from `RDTSC`; this is a varied local seed, not secure
 entropy. The channel-2/speaker gate state is restored when the app exits.
 
@@ -138,6 +144,20 @@ KratOS halted
 
 `halt` disables interrupts and halts the CPU.
 
+### Keyboard shell regression test
+
+After building the ISO, run `python3 kratos/test-keyboard-shell.py [path/to/kratos.iso]`.
+The script uses monitor `sendkey` to generate keyboard events, never injects
+serial input, checks serial output as an independent observation, and retains
+welcome, shell, and app screenshots in a printed temporary directory. It tests
+Backspace, Shift and quoted echo, app exit, shell recovery, and halt.
+
+On 2026-11-01, the monitor-key test passed on QEMU 11.1.2 at 1280x800
+and at 320x200 (a separate ISO with Limine `resolution: 320x200x32`).
+Screenshots at both sizes were inspected for the logo and shell input; serial
+output confirmed `help`, `echo "Hello !"`, `kratos`, keyboard `q`, `help`, and
+`halt`. This tests emulated keyboard delivery, not physical keyboard layouts.
+
 ### Serial shell regression test
 
 After building a BIOS ISO with `./kratos/build-qemu.sh --build-only`, run
@@ -151,6 +171,7 @@ QEMU with:
 
 ```sh
 zig test kratos/kernel/console.zig
+zig test kratos/kernel/input.zig
 zig test kratos/kernel/shell_commands.zig
 ```
 

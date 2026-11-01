@@ -37,3 +37,5 @@
 2026-11-01 - 13:36 MSK - Implemented ticket 0012's responsive KratOS welcome/logo, Spartan-red framebuffer shell presentation, expanded built-in font, direct framebuffer clear without ANSI escapes, host tests, and a QEMU visual checklist. Host validation and freestanding kernel compile/link passed; QEMU visual verification is pending because LIMINE_DIR is unset.
 
 2026-11-01 - 14:10 MSK - Implemented ticket 0013's bounded foreground framebuffer animation, independent movement/direction/frame-policy tests, PIT channel-2 pacing with COM1 exit polling, branded shell restoration, and QEMU checklist; host tests and freestanding compile/link passed, visual QEMU checks remain blocked by unavailable Limine files.
+
+2026-11-01 - 15:29 MSK - Completed ticket 0014: added bounded polled PS/2 decoding, fair serial/keyboard arbitration, framebuffer input echo, keyboard app exit, and a text-font ASCII logo. Host tests, freestanding ISO build, serial rapid-paste regression, and monitor-key QEMU tests at 1280x800 and 320x200 passed; inspected welcome and shell screenshots.
