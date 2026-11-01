@@ -1,6 +1,6 @@
 # Add a QEMU shutdown command
 
-**Status:** planned
+**Status:** done
 
 ## Description
 
@@ -39,6 +39,13 @@ loop from tickets 0007–0014.
 
 ## Implementation notes
 
-To be completed. Preferred QEMU implementation: configure `isa-debug-exit` at
-I/O base `0xf4` and have the guest issue a 32-bit write on `shutdown`. Keep the
-port and exit code in one documented boundary so the behavior is easy to test.
+The launcher configures `isa-debug-exit` at I/O base `0xf4`; `shutdown` writes
+the 32-bit value `0x10`, so QEMU exits with status 33. The regular launch omits
+QEMU's `-no-shutdown` option, which would otherwise keep the emulator open after
+the device's shutdown request. Both monitor-key and serial regressions issue
+`shutdown` and check the final serial message and process status. The serial
+regression separately verifies that `halt` leaves the VM running until the
+host-side test terminates it.
+
+Host command tests passed, the freestanding ISO built, and the keyboard and
+serial QEMU regressions both verified process exit status 33 after `shutdown`.

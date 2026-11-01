@@ -10,10 +10,11 @@ The kernel boots to a text-oriented framebuffer shell with a multiline ASCII-art
 welcome logo. In the graphical QEMU window, the shell accepts polled PS/2
 keyboard input; COM1 serial input/output remains available for recovery and
 automated testing. Built-in commands include `help`, `about`, `echo`, `mem`,
-`clear`, `kratos`, and `halt`. `kratos` is a bounded kernel-mode animation and
-returns to the shell when `q` is pressed. `halt` stops the guest CPU but does not
-close QEMU; a guest `shutdown` command is planned in ticket 0015. Until then,
-close QEMU from its host window or send Ctrl+C in the terminal that launched it.
+`clear`, `kratos`, `halt`, and `shutdown`. `kratos` is a bounded kernel-mode
+animation and returns to the shell when `q` is pressed. `halt` stops the guest
+CPU but leaves QEMU open; `shutdown` requests QEMU to exit using its configured
+debug-exit device. This shutdown mechanism is QEMU-specific, not a general
+hardware poweroff interface. QEMU exits with status 33 for this command.
 
 This is an educational kernel prototype, not a POSIX system. It does not yet
 provide user-mode processes, a filesystem, or arbitrary executable loading.

@@ -43,7 +43,8 @@ usable physical page frame, installs an IDT for CPU exceptions, then enters a
 bounded shell. Click the graphical QEMU window and type commands there; release
 QEMU keyboard capture using its displayed host-key shortcut. Alternatively type
 into the serial terminal for recovery and automation.
-Built-ins are `help`, `about`, `echo <text>`, `mem`, `clear`, `kratos`, and `halt`;
+Built-ins are `help`, `about`, `echo <text>`, `mem`, `clear`, `kratos`, `halt`,
+and `shutdown`;
 unknown commands report an error and return to the prompt. Input is limited to
 128 bytes. Backspace edits a valid line; exceeding the limit rings the bell and
 discards the entire line through its terminator. UART overrun, parity, framing,
@@ -52,11 +53,12 @@ or break errors likewise ring the bell, discard the damaged line, and print
 CRLF line endings are accepted.
 
 `halt` disables guest interrupts and halts the CPU; it does not close the QEMU
-process. To end the current demo, close the QEMU window or press Ctrl+C in the
-host terminal that launched QEMU. KratOS cannot send Ctrl+C to its host process.
-A guest `shutdown` command using an explicit QEMU exit device is planned in
-[`tickets/0015-qemu-shutdown-command.md`](tickets/0015-qemu-shutdown-command.md);
-it is not a portable hardware poweroff mechanism.
+process. `shutdown` writes the 32-bit value `0x10` to the QEMU `isa-debug-exit`
+device at I/O port `0xf4`; QEMU exits with status 33. The normal launcher adds
+this device and does not use `-no-shutdown`. This does not send Ctrl+C to the
+host process and is not a portable hardware poweroff mechanism. If running QEMU
+without that device, close the host window or press Ctrl+C in the terminal that
+launched it.
 
 `echo` removes matching single- or double-quote delimiters and preserves the
 other argument bytes, including spaces inside quotes. Empty quoted arguments
@@ -136,7 +138,7 @@ Example interaction (memory values depend on the Limine map):
 
 ```text
 kratos> help
-help about echo mem clear kratos halt
+help about echo mem clear kratos halt shutdown
 kratos> about
 KratOS: a small hobby operating system
 kratos> echo hello KratOS
@@ -150,7 +152,7 @@ KratOS halted
 ```
 
 `halt` disables interrupts and halts the CPU, leaving QEMU itself running. Use
-the host-side close/Ctrl+C procedure above to terminate QEMU.
+`shutdown` in the documented QEMU configuration to exit QEMU.
 
 ### Keyboard shell regression test
 
@@ -158,13 +160,15 @@ After building the ISO, run `python3 kratos/test-keyboard-shell.py [path/to/krat
 The script uses monitor `sendkey` to generate keyboard events, never injects
 serial input, checks serial output as an independent observation, and retains
 welcome, shell, and app screenshots in a printed temporary directory. It tests
-Backspace, Shift and quoted echo, app exit, shell recovery, and halt.
+Backspace, Shift and quoted echo, app exit, shell recovery, and `shutdown`'s
+QEMU process exit/status.
 
 On 2026-11-01, the monitor-key test passed on QEMU 11.1.2 at 1280x800
 and at 320x200 (a separate ISO with Limine `resolution: 320x200x32`).
 Screenshots at both sizes were inspected for the logo and shell input; serial
 output confirmed `help`, `echo "Hello !"`, `kratos`, keyboard `q`, `help`, and
-`halt`. This tests emulated keyboard delivery, not physical keyboard layouts.
+`shutdown` (QEMU status 33). This tests emulated keyboard delivery, not physical
+keyboard layouts.
 
 ### Serial shell regression test
 
@@ -172,10 +176,11 @@ After building a BIOS ISO with `./kratos/build-qemu.sh --build-only`, run
 `./kratos/test-serial-shell.sh [path/to/kratos.iso]`. This repeatably boots the
 documented `q35`/256 MiB QEMU configuration and rapidly pastes a 115-byte echo
 command followed by `help` and `about`, tests CRLF, exactly-full and overflowing
-lines, quoted echo, backspace, unknown-command recovery, and halt. The script
-requires `expect` in addition to the QEMU prerequisites and fails on missing
-output, corruption, or a damaged prompt. Unit tests can be run without booting
-QEMU with:
+lines, quoted echo, backspace, unknown-command recovery, and `halt`. It starts a
+second VM to send `shutdown` over serial and verifies QEMU exits with status 33.
+The script requires `expect` in addition to the QEMU prerequisites and fails on
+missing output, corruption, or a damaged prompt. Unit tests can be run without
+booting QEMU with:
 
 ```sh
 zig test kratos/kernel/console.zig
@@ -194,7 +199,8 @@ device drivers, or hardware support beyond this QEMU profile.
 Verified on Apple Silicon macOS with Zig 0.17.0, Clang, xorriso 1.5.8.pl02,
 Limine 12.9.6, and QEMU 11.1.2. The build-only command produced the ISO; QEMU
 BIOS interaction verified the prompt, all documented built-ins, unknown-command
-recovery, multiple commands, empty input, backspace, CRLF, and halt. A separate
+recovery, multiple commands, empty input, backspace, CRLF, `halt`, and `shutdown`
+from both keyboard and serial; shutdown terminated QEMU with status 33. A separate
 QEMU monitor `nmi` command reached the exception handler, which printed vector 2,
 error code 0, and RIP before halting. The ISO tool reports an
 EFI-directory warning; only the BIOS QEMU path is tested, and no physical

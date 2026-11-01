@@ -15,6 +15,7 @@ export ISO QEMU
 set timeout 20
 log_user 1
 spawn $env(QEMU) -M q35 -m 256M -cdrom $env(ISO) -boot order=d \
+    -device isa-debug-exit,iobase=0xf4,iosize=0x04 \
     -serial stdio -display none -no-reboot -no-shutdown
 expect {
     "kratos> " {}
@@ -39,7 +40,7 @@ expect {
     timeout { puts stderr "prompt was damaged after the long echo"; exit 1 }
 }
 expect {
-    "help about echo mem clear kratos halt" {}
+    "help about echo mem clear kratos halt shutdown" {}
     timeout { puts stderr "command after pasted echo did not execute cleanly"; exit 1 }
 }
 expect {
@@ -90,4 +91,26 @@ expect {
 send -- "\001x"
 expect eof
 puts "QEMU serial shell regression passed"
+
+# Start a fresh VM and verify shutdown through the serial shell itself.
+spawn $env(QEMU) -M q35 -m 256M -cdrom $env(ISO) -boot order=d \
+    -device isa-debug-exit,iobase=0xf4,iosize=0x04 \
+    -serial stdio -display none -no-reboot
+expect {
+    "kratos> " {}
+    timeout { puts stderr "QEMU did not reach the shell for shutdown test"; exit 1 }
+    eof { puts stderr "QEMU exited before the shutdown test"; exit 1 }
+}
+send -- "shutdown\r"
+expect {
+    "KratOS shutting down" {}
+    timeout { puts stderr "shutdown command did not print its final message"; exit 1 }
+}
+expect eof
+set qemu_result [wait]
+if {[lindex $qemu_result 3] != 33} {
+    puts stderr "shutdown returned unexpected QEMU status: $qemu_result"
+    exit 1
+}
+puts "QEMU serial shutdown regression passed with exit status 33"
 EOF

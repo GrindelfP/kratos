@@ -43,3 +43,5 @@
 2026-11-01 - 15:38 MSK - Updated README.adoc with current KratOS capabilities and QEMU run instructions; summarized Oct 31–Nov 1 development in devlog.adoc; moved edu/ and the obsolete C kernel.c/kernel.h stubs into legacy/ without deleting them; updated AGENTS.md to reflect the archived layout.
 
 2026-11-01 - 15:41 MSK - Created planned ticket 0015 for a QEMU-specific guest shutdown command and clarified in the README, QEMU guide, and roadmap that `halt` stops the guest CPU while Ctrl+C is a host-side action the guest cannot send.
+
+2026-11-01 - 16:01 MSK - Implemented ticket 0015: added the `shutdown` action and a QEMU `isa-debug-exit` boundary, configured the normal launcher, and extended serial/keyboard QEMU regressions to assert process exit status 33. Verified command tests, freestanding ISO build, serial `halt` preservation, keyboard shutdown, and serial shutdown; updated run documentation.

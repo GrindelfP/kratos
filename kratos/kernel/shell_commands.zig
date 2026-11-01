@@ -3,7 +3,7 @@
 
 pub const max_line_length = 128;
 
-pub const Action = enum { continue_shell, halt, kratos };
+pub const Action = enum { continue_shell, halt, kratos, shutdown };
 
 pub const MemorySummary = struct {
     map_entries: usize = 0,
@@ -29,7 +29,7 @@ pub fn execute(context: *Context, line: []const u8) Error!Action {
     const command = input[0..split];
     const args = if (split < input.len) trim(input[split..]) else "";
     if (eql(command, "help")) {
-        context.write(context.writer_context, "help about echo mem clear kratos halt\r\n");
+        context.write(context.writer_context, "help about echo mem clear kratos halt shutdown\r\n");
     } else if (eql(command, "about")) {
         context.write(context.writer_context, "KratOS: a small hobby operating system\r\n");
     } else if (eql(command, "echo")) {
@@ -59,6 +59,8 @@ pub fn execute(context: *Context, line: []const u8) Error!Action {
         return .kratos;
     } else if (eql(command, "halt")) {
         return .halt;
+    } else if (eql(command, "shutdown")) {
+        return .shutdown;
     } else {
         context.write(context.writer_context, "Unknown command: ");
         context.write(context.writer_context, command);
@@ -165,7 +167,7 @@ test "empty and whitespace input are no-ops; command arguments are preserved" {
     try std.testing.expectEqualStrings("hello world\r\n", output.contents());
 }
 
-test "known commands, unknown command, and halt action" {
+test "known commands, unknown command, halt, and shutdown actions" {
     var output: TestOutput = .{};
     var context = Context{ .writer_context = &output, .write = TestOutput.write, .clear = TestOutput.clear };
     try std.testing.expectEqual(Action.continue_shell, try execute(&context, "help"));
@@ -174,6 +176,7 @@ test "known commands, unknown command, and halt action" {
     try std.testing.expectEqual(Action.continue_shell, try execute(&context, "clear"));
     try std.testing.expectEqual(Action.continue_shell, try execute(&context, "nonesuch arg"));
     try std.testing.expectEqual(Action.halt, try execute(&context, "halt"));
+    try std.testing.expectEqual(Action.shutdown, try execute(&context, "shutdown"));
     try std.testing.expect(std.mem.indexOf(u8, output.contents(), "Unknown command: nonesuch") != null);
     try std.testing.expect(std.mem.indexOf(u8, output.contents(), "\x1b") == null);
     try std.testing.expect(std.mem.indexOf(u8, output.contents(), "[screen cleared]") != null);

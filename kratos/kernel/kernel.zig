@@ -12,6 +12,8 @@ const input = @import("input.zig");
 const animation = @import("animation.zig");
 
 const max_memory_map_entries = 128;
+const qemu_debug_exit_port: u16 = 0xf4;
+const qemu_debug_exit_shutdown: u32 = 0x10;
 
 const LimineMemmapResponse = extern struct {
     revision: u64,
@@ -119,6 +121,21 @@ fn outb(port: u16, value: u8) void {
         : [value] "{al}" (value),
           [port] "{dx}" (port),
     );
+}
+
+fn outl(port: u16, value: u32) void {
+    asm volatile ("outl %eax, %dx"
+        :
+        : [value] "{eax}" (value),
+          [port] "{dx}" (port),
+    );
+}
+
+fn shutdownQemu() noreturn {
+    writeShellOutput(&shell_writer_context, "KratOS shutting down\r\n");
+    // QEMU's isa-debug-exit returns (value << 1) | 1 as its process status.
+    outl(qemu_debug_exit_port, qemu_debug_exit_shutdown);
+    while (true) asm volatile ("cli; hlt");
 }
 
 fn inb(port: u16) u8 {
@@ -283,6 +300,7 @@ fn runShell(memory: shell_commands.MemorySummary) noreturn {
             console.write("KratOS halted\r\n");
             while (true) asm volatile ("cli; hlt");
         }
+        if (action == .shutdown) shutdownQemu();
     }
 }
 
