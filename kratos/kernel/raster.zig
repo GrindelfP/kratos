@@ -40,15 +40,32 @@ const glyphs = [_][5]u8{
     .{ 14, 17, 17, 31, 17 }, .{ 30, 17, 17, 30, 17 }, .{ 14, 17, 16, 16, 14 }, .{ 30, 17, 17, 17, 30 }, .{ 31, 16, 16, 30, 31 }, .{ 31, 16, 16, 30, 16 }, .{ 14, 17, 16, 23, 15 }, .{ 17, 17, 31, 17, 17 }, .{ 14, 4, 4, 4, 14 },    .{ 7, 2, 2, 18, 12 },   .{ 17, 18, 28, 18, 17 }, .{ 16, 16, 16, 16, 31 }, .{ 17, 27, 21, 17, 17 }, .{ 17, 25, 21, 19, 17 }, .{ 14, 17, 17, 17, 14 }, .{ 30, 17, 17, 30, 16 }, .{ 14, 17, 17, 21, 10 }, .{ 30, 17, 17, 30, 17 }, .{ 15, 16, 14, 1, 30 }, .{ 31, 4, 4, 4, 4 }, .{ 17, 17, 17, 17, 14 }, .{ 17, 17, 17, 10, 4 }, .{ 17, 17, 21, 21, 10 }, .{ 17, 10, 4, 10, 17 }, .{ 17, 10, 4, 4, 4 }, .{ 31, 2, 4, 8, 31 },
     .{ 14, 17, 19, 21, 25 }, .{ 4, 12, 4, 4, 14 },    .{ 14, 17, 2, 8, 31 },   .{ 30, 1, 6, 1, 30 },    .{ 2, 6, 10, 31, 2 },    .{ 31, 16, 30, 1, 30 },  .{ 14, 16, 30, 17, 14 }, .{ 31, 1, 2, 4, 4 },     .{ 14, 17, 14, 17, 14 }, .{ 14, 17, 15, 1, 14 },
 };
+const lowercase_glyphs = [_][5]u8{
+    .{ 0, 14, 1, 15, 15 }, .{ 16, 16, 30, 17, 30 }, .{ 0, 14, 16, 16, 14 }, .{ 1, 1, 15, 17, 15 }, .{ 0, 14, 31, 16, 14 }, .{ 6, 8, 28, 8, 8 }, .{ 0, 15, 17, 15, 1 }, .{ 16, 16, 30, 17, 17 }, .{ 4, 0, 12, 4, 14 }, .{ 2, 0, 2, 2, 18 }, .{ 16, 18, 28, 18, 17 }, .{ 12, 4, 4, 4, 14 }, .{ 0, 26, 21, 21, 21 }, .{ 0, 30, 17, 17, 17 }, .{ 0, 14, 17, 17, 14 }, .{ 0, 30, 17, 30, 16 }, .{ 0, 15, 17, 15, 1 }, .{ 0, 22, 24, 16, 16 }, .{ 0, 15, 24, 7, 30 }, .{ 8, 28, 8, 8, 6 }, .{ 0, 17, 17, 19, 13 }, .{ 0, 17, 17, 10, 4 }, .{ 0, 17, 21, 21, 10 }, .{ 0, 17, 10, 4, 10 }, .{ 0, 17, 17, 15, 1 }, .{ 0, 31, 2, 4, 31 },
+};
 pub const font_width = 6;
 pub const font_height = 6;
 pub fn drawGlyph(surface: *Surface, x: isize, y: isize, byte: u8, fg: Color, bg: Color) void {
-    var c = byte;
-    if (c >= 'a' and c <= 'z') c -= 32;
-    const index = std.mem.indexOfScalar(u8, alphabet, c);
+    const index = std.mem.indexOfScalar(u8, alphabet, byte);
+    const lower_index = if (byte >= 'a' and byte <= 'z') @as(usize, byte - 'a') else null;
+    const special: ?[5]u8 = switch (byte) {
+        ' ' => .{ 0, 0, 0, 0, 0 }, '.' => .{ 0, 0, 0, 0, 4 }, ',' => .{ 0, 0, 0, 4, 8 }, ':' => .{ 0, 4, 0, 4, 0 }, ';' => .{ 0, 4, 0, 4, 8 }, '!' => .{ 4, 4, 4, 0, 4 }, '?' => .{ 14, 17, 2, 4, 4 }, '-' => .{ 0, 0, 31, 0, 0 }, '_' => .{ 0, 0, 0, 0, 31 }, '/' => .{ 1, 2, 4, 8, 16 }, '>' => .{ 16, 8, 4, 8, 16 }, '<' => .{ 1, 2, 4, 2, 1 }, '=' => .{ 0, 31, 0, 31, 0 }, '|' => .{ 4, 4, 4, 4, 4 }, '+' => .{ 0, 4, 14, 4, 0 }, '\'' => .{ 4, 4, 8, 0, 0 }, '"' => .{ 10, 10, 0, 0, 0 }, '#' => .{ 10, 31, 10, 31, 10 }, '*' => .{ 0, 21, 14, 21, 0 }, else => null,
+    };
+    const rows = if (index) |i| glyphs[i] else if (lower_index) |i| lowercase_glyphs[i] else special orelse .{ 0, 0, 0, 0, 0 };
     for (0..font_height) |row| for (0..font_width) |col| {
-        const on = if (index) |i| row < 5 and col < 5 and (glyphs[i][row] & (@as(u8, 1) << @intCast(4 - col))) != 0 else false;
+        const on = row < 5 and col < 5 and (rows[row] & (@as(u8, 1) << @intCast(4 - col))) != 0;
         surface.pixel(x + @as(isize, @intCast(col)), y + @as(isize, @intCast(row)), if (on) fg else bg);
+    };
+}
+
+pub fn drawGlyphScaled(surface: *Surface, x: isize, y: isize, byte: u8, fg: Color, bg: Color, scale: usize) void {
+    if (scale == 0) return;
+    var base: [font_width * font_height * 4]u8 = @splat(0);
+    var scratch = Surface.init(&base, font_width, font_height, font_width * 4, .{ .red_size = 8, .red_shift = 16, .green_size = 8, .green_shift = 8, .blue_size = 8, .blue_shift = 0 }).?;
+    drawGlyph(&scratch, 0, 0, byte, fg, bg);
+    for (0..font_height) |row| for (0..font_width) |col| {
+        const pixel = (@as(usize, @intCast(base[(row * font_width + col) * 4])) << 16) | (@as(usize, @intCast(base[(row * font_width + col) * 4 + 1])) << 8) | base[(row * font_width + col) * 4 + 2];
+        for (0..scale) |dy| for (0..scale) |dx| surface.pixel(x + @as(isize, @intCast(col * scale + dx)), y + @as(isize, @intCast(row * scale + dy)), @intCast(pixel));
     };
 }
 
@@ -114,6 +131,18 @@ test "supports alternate RGB channel byte order without touching row padding" {
     s.pixel(0, 0, 0x123456);
     try std.testing.expectEqualSlices(u8, &.{ 0x12, 0x34, 0x56, 0 }, mem[0..4]);
     try std.testing.expectEqual(@as(u8, 0xaa), mem[4]);
+}
+test "renders lowercase letters and spaces as distinct readable glyphs" {
+    var mem: [font_width * font_height * 4]u8 = @splat(0);
+    var s = Surface.init(&mem, font_width, font_height, font_width * 4, rgb).?;
+    drawGlyph(&s, 0, 0, 'a', 0xffffff, 0);
+    const lowercase = mem;
+    @memset(&mem, 0);
+    drawGlyph(&s, 0, 0, 'A', 0xffffff, 0);
+    try std.testing.expect(!std.mem.eql(u8, &lowercase, &mem));
+    @memset(&mem, 0);
+    drawGlyph(&s, 0, 0, ' ', 0xffffff, 0);
+    for (mem) |pixel| try std.testing.expectEqual(@as(u8, 0), pixel);
 }
 test "console wraps, backspaces, and scrolls within surface" {
     var mem: [768]u8 = @splat(0);
