@@ -2,7 +2,7 @@
 
 ## Direction
 
-KratOS will begin on x86 and target QEMU first. Zig is the proposed primary kernel language, with assembly limited to the small architecture-specific boundary where needed. Before treating that choice as settled, validate a specific freestanding Zig toolchain, target, linker/debugger workflow, and build path. The project’s long-term aim is a lightweight but full UNIX-like, POSIX-oriented operating system.
+KratOS targets x86_64 in QEMU first. Zig is the primary kernel language, with assembly limited to the small architecture-specific boundary where needed. The initial freestanding toolchain and boot path have been validated; their limitations and reproducible build/debug workflow remain documented. The project’s long-term aim is a lightweight but full UNIX-like, POSIX-oriented operating system.
 
 The intended distinction is an inspectable, understandable system: its boundaries, behavior, and development path should be easy to follow. Being lightweight or written in Zig is not, by itself, a claim of uniqueness. Hardware support grows incrementally; broad PC hardware support is an aspiration, not an initial compatibility promise.
 
@@ -50,4 +50,22 @@ Expand from QEMU to selected physical PC hardware and improve installation, reco
 
 ## Near-term tickets
 
-Tickets for stages 1–3 are in [`tickets/`](tickets/). Tickets 0007–0009 delivered the initial serial shell. Tickets 0010–0013 address tester-reported shell input corruption, reusable framebuffer console infrastructure, the branded boot/shell experience, and the animated `kratos` foreground application. Ticket 0014 adds direct QEMU-window keyboard input and an ASCII-art text welcome. Ticket 0015 adds a QEMU-specific guest shutdown command, distinct from host-side Ctrl+C. Ticket 0016 improves shell font size and bottom padding for readability. Ticket 0017 adds bounded command-name completion and command history. User-mode process isolation, executable loading, filesystem, and POSIX work remain later roadmap milestones.
+Tickets 0001–0017 in [`tickets/`](tickets/) are complete. They delivered the QEMU boot path, kernel foundations, and an interactive kernel shell with serial and keyboard input, framebuffer output, history, completion, and a foreground animation. The shell remains a kernel-mode debug and recovery console, not userland.
+
+### Next milestone: first user-mode program
+
+Define and implement the smallest end-to-end user-mode execution path before expanding the command set. First write tickets that specify the architecture, boundaries, and testable acceptance criteria for:
+
+1. **User-mode boundary:** establish the x86_64 privilege transition and the memory mappings and protections needed for one isolated program; handle user faults without silently corrupting the kernel.
+2. **Minimal syscall interface:** define a small, documented ABI for output and program exit, including argument validation and observable error behavior. Do not claim POSIX compatibility for this initial interface.
+3. **First program and launch path:** build a separate minimal user-mode program, load it using an explicitly documented initial mechanism, run it in QEMU, and return control to the kernel shell on exit. A general executable loader and process scheduler are not prerequisites unless the design demonstrates they are needed.
+4. **Verification:** document reproducible build and QEMU commands; test successful output and exit, invalid syscall arguments, and a user fault; confirm the serial recovery shell still works afterward.
+
+**Milestone exit:** the separate program executes at user privilege, uses the documented syscall boundary, and exits or faults in a controlled, observable way without losing the recovery console. This is a single-program foundation, not a claim of a complete process model or security guarantee.
+
+### Following milestones
+
+- Define a minimal executable-loading and process-lifecycle model, then add only the scheduling and isolation needed to support it.
+- Plan a filesystem path, beginning with a simple read-only source of program files and a bounded file interface; evolve toward persistent storage only after its requirements and recovery behavior are defined.
+- Grow userland and POSIX-oriented interfaces in small, tested increments driven by actual programs. Keep compatibility claims limited to the documented, verified scope.
+- Continue hardware and installability work only against named, tested configurations; QEMU remains the first target.
