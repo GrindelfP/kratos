@@ -65,3 +65,5 @@
 2026-11-01 - 17:43 MSK - Fixed ticket 0017 long-line framebuffer redraw using a bounded horizontal input viewport; host raster pixel/margin tests, freestanding build, serial regression and QEMU monitor-key long/short draft screenshot comparisons and recalled execution passed at 1280x800 and 320x200. Ticket remains in progress as requested.
 
 2026-11-10 - 17:26 MSK - Confirmed tickets 0001–0017 are complete and updated the roadmap with the first user-mode program and syscall milestone, verification criteria, and a staged executable, filesystem, and userland path.
+
+2026-11-10 - 17:28 MSK - Planned tickets 0018–0021 for the user-mode boundary, minimal syscall ABI, first separate user program, and end-to-end QEMU verification; linked them from the roadmap.

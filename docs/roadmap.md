@@ -54,12 +54,14 @@ Tickets 0001–0017 in [`tickets/`](tickets/) are complete. They delivered the Q
 
 ### Next milestone: first user-mode program
 
-Define and implement the smallest end-to-end user-mode execution path before expanding the command set. First write tickets that specify the architecture, boundaries, and testable acceptance criteria for:
+Define and implement the smallest end-to-end user-mode execution path before expanding the command set. The planned tickets specify the architecture, boundaries, and testable acceptance criteria for:
 
 1. **User-mode boundary:** establish the x86_64 privilege transition and the memory mappings and protections needed for one isolated program; handle user faults without silently corrupting the kernel.
 2. **Minimal syscall interface:** define a small, documented ABI for output and program exit, including argument validation and observable error behavior. Do not claim POSIX compatibility for this initial interface.
 3. **First program and launch path:** build a separate minimal user-mode program, load it using an explicitly documented initial mechanism, run it in QEMU, and return control to the kernel shell on exit. A general executable loader and process scheduler are not prerequisites unless the design demonstrates they are needed.
 4. **Verification:** document reproducible build and QEMU commands; test successful output and exit, invalid syscall arguments, and a user fault; confirm the serial recovery shell still works afterward.
+
+The work is tracked in order by [0018: user-mode boundary](tickets/0018-user-mode-boundary.md), [0019: syscalls](tickets/0019-minimal-user-syscalls.md), [0020: first user program](tickets/0020-first-user-program.md), and [0021: milestone verification](tickets/0021-user-mode-qemu-verification.md).
 
 **Milestone exit:** the separate program executes at user privilege, uses the documented syscall boundary, and exits or faults in a controlled, observable way without losing the recovery console. This is a single-program foundation, not a claim of a complete process model or security guarantee.
 
