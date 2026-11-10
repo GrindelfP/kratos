@@ -67,3 +67,5 @@
 2026-11-10 - 17:26 MSK - Confirmed tickets 0001–0017 are complete and updated the roadmap with the first user-mode program and syscall milestone, verification criteria, and a staged executable, filesystem, and userland path.
 
 2026-11-10 - 17:28 MSK - Planned tickets 0018–0021 for the user-mode boundary, minimal syscall ABI, first separate user program, and end-to-end QEMU verification; linked them from the roadmap.
+
+2026-11-10 - 17:31 MSK - Finalized the planning session with a handoff in docs/session.md; recorded verification limits and ticket 0018 as the next step.
