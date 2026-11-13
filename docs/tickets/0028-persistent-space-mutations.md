@@ -1,6 +1,6 @@
 # Create and modify persistent spaces
 
-**Status:** planned
+**Status:** completed
 
 ## Description
 
@@ -36,3 +36,13 @@ Depends on [0022](0022-filesystem-namespace-contract.md) and the QEMU block
 device [0027](0027-qemu-persistent-storage.md). A narrow, durable data volume
 is preferable to promising general-purpose filesystem behavior before recovery
 is tested.
+
+## Completion
+
+Implemented a versioned dual-slot CRC snapshot volume with copy-on-write sector
+extents, monotonic IDs, bounded CRUD/move/read/write operations, and reserved
+areas. Boot-time mount, bounded recovery-shell mutation commands, format
+documentation, and a marker-gated two-boot QEMU fixture are included. Host
+writable-volume tests (7/7), shell command tests (18/18), a freestanding link,
+and syntax/diff checks passed. QEMU execution remains unavailable locally
+because the ISO build needs Zig 0.17.0 and Limine 12.9.6 assets.
