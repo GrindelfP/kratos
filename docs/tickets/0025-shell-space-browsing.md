@@ -1,6 +1,6 @@
 # Browse spaces from the recovery shell
 
-**Status:** planned
+**Status:** completed
 
 ## Description
 
@@ -27,3 +27,14 @@ its serial and keyboard command paths bounded.
 Depends on [0024](0024-kernel-readonly-files.md). The shell is a diagnostic
 and recovery interface, not a replacement for the user file API in
 [0026](0026-user-files-and-package-launch.md).
+
+## Completion
+
+Added bounded `spaces`, `pwd`, `ls`, `cd`, and `cat` recovery-shell commands
+rooted at `system:`. They use namespace canonicalization, limit listings to 16
+entries and text previews to 96 bytes, and preserve normal shell recovery on
+invalid paths and unavailable content. Host tests for shell-space behavior
+(4/4) and command parsing (10/10), a freestanding kernel-object build, and
+syntax/diff checks passed. QEMU serial and keyboard checks remain unrun because
+the available Zig is 0.17.1 rather than the required 0.17.0 and Limine release
+files are unavailable locally.

@@ -93,3 +93,5 @@
 [2026-11-13] - [12:42 MSK] - Finalized the session with an updated handoff for completed tickets 0022–0023 and the next kernel mount task.
 
 [2026-11-13] - [18:53 MSK] - Completed ticket 0024: mounted fully validated read-only `system:` images through bounded kernel lookup, enumeration, stat, and offset-read operations with stable handles and malformed-image recovery. Host parser tests and freestanding build passed; the QEMU smoke fixture is ready but unrun because Limine 12.9.6 is unavailable locally.
+
+[2026-11-13] - [18:59 MSK] - Completed ticket 0025: added bounded `system:` recovery-shell browsing with `spaces`, `pwd`, `ls`, `cd`, and `cat`, canonical paths, 16-entry listings, and 96-byte previews. Host command and shell-space tests passed; QEMU serial/keyboard checks remain blocked by unavailable Zig 0.17.0 and Limine release files.
