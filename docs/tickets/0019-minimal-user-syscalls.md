@@ -1,6 +1,6 @@
 # Define and implement minimal user syscalls
 
-**Status:** planned
+**Status:** done — fixed embedded context
 
 ## Description
 
@@ -27,3 +27,10 @@ write output and exit. Keep the interface independent of POSIX claims.
 
 Depends on ticket [0018](0018-user-mode-boundary.md). A documented, bounded ABI
 lets a separate program interact with the kernel without exposing kernel memory.
+
+## Implementation and verification
+
+The ABI, fixed-mapping validation, exit lifetime, fixture and test commands are
+documented in [qemu-boot.md](../qemu-boot.md#minimal-ring-3-syscall-abi).
+The embedded fixture is not yet a separately loaded program. Host policy tests
+and the QEMU boundary regression cover the syscall path and existing faults.

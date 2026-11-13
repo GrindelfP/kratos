@@ -285,3 +285,43 @@ error code 0, and RIP before halting. The ISO tool reports an
 EFI-directory warning; only the BIOS QEMU path is tested, and no physical
 hardware or UEFI boot is claimed. This proves the prototype path, not general
 hardware support.
+
+## Minimal ring-3 syscall ABI
+
+This is a KratOS-specific experimental ABI for the fixed 0018 context, not
+POSIX. A user invokes `int $0x80` (64-bit mode, DPL-3 interrupt gate); the CPU
+switches to the existing TSS RSP0 kernel stack. Maskable interrupts remain off.
+`RAX` holds the unsigned 64-bit call number, `RDI` and `RSI` hold unsigned
+64-bit arguments, and `RAX` returns a 64-bit result. All other general-purpose
+registers and the user flags are preserved on returning calls; floating-point,
+SIMD and other extended state are not part of this ABI and may be clobbered.
+The kernel clears DF while executing. The context is single-CPU and cannot run
+concurrently with mapping changes.
+
+| Number | Operation | Arguments | Return |
+| --- | --- | --- | --- |
+| 1 | output | `RDI` = user virtual address, `RSI` = byte count | byte count, or error |
+| 2 | exit | `RDI` = 64-bit status, `RSI` ignored | does not return |
+
+Errors are signed 64-bit values in `RAX`: -1 invalid or inaccessible range,
+-2 count exceeds 1024, -3 unknown call number. Oversize is checked first.
+A zero-length output succeeds with zero for any address and reads nothing.
+For nonzero output the entire half-open range must lie in the fixed contiguous
+readable user mappings `[0x400000, 0x403000)`; this rejects wrapping, kernel,
+noncanonical and unmapped addresses before any byte is read. The limit is
+1024 bytes inclusive; output is raw bytes through the kernel console. This
+policy is coupled to the current immutable page tables and must be replaced by
+actual mapping/permission validation before a general loader or mutable address
+space is introduced. No protection against malicious output content is claimed.
+
+Exit records the full status, deactivates the context and restores the saved
+kernel address space and stack; static backing pages remain reserved and are
+cleared before the next run. Boot's embedded position-independent ring-3 fixture
+writes `KratOS: syscall output`, checks kernel-address, end-crossing and
+wrapping pointer failures, zero length, oversize and unknown-call errors, and
+exits with status 42. The kernel prints `ring3 syscall self-test passed exit=42`
+only if those checks and the ring-3 CS check succeed. Run
+`zig test kratos/kernel/user_syscalls.zig` and
+`python3 kratos/test-user-boundary.py /path/to/kratos.iso`; the latter also
+checks the 0018 fault cases, shell recovery and kernel-origin NMI handling.
+This fixture is not a separately loaded program, scheduler or security guarantee.
