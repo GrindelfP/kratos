@@ -1,6 +1,5 @@
-//! Isolated x86-64 IDT setup and exception dispatch state.
-//! The entry stubs are in interrupts.S; wire `install()` into kernel startup
-//! only after the active linker/build integration is confirmed.
+//! x86-64 IDT setup and exception dispatch. User test faults may recover;
+//! all kernel-origin faults and unsupported exceptions remain fatal.
 
 const Gate = packed struct(u128) {
     offset_low: u16,
@@ -26,8 +25,7 @@ var idt: [32]Gate = @splat(.{
     .offset_high = 0,
 });
 
-/// Last fatal exception recorded. This is an inspection seam for a later
-/// serial/debug reporter; it is not itself a user-visible diagnostic.
+/// Most recent exception, including recovered user faults.
 pub var last_exception_vector: u64 = 0;
 pub var last_exception_error: u64 = 0;
 
@@ -79,11 +77,26 @@ pub fn install() void {
         : .{ .memory = true });
 }
 
-/// Called by the assembly boundary. Fatal exceptions are intentionally
-/// non-returning; the caller must keep maskable interrupts disabled for now.
-export fn kratos_exception_dispatch(vector: u64, error_code: u64, instruction_pointer: u64) noreturn {
+/// Called by the assembly boundary with maskable interrupts disabled.
+extern fn kratos_user_recover() noreturn;
+pub var user_active = false;
+pub var user_vector: u64 = 0;
+pub var user_error: u64 = 0;
+
+export fn kratos_exception_dispatch(vector: u64, error_code: u64, instruction_pointer: u64, cs: u64) noreturn {
     last_exception_vector = vector;
     last_exception_error = error_code;
+    if (user_active and cs & 3 == 3 and (vector == 6 or vector == 14)) {
+        user_active = false;
+        user_vector = vector;
+        user_error = error_code;
+        serialWrite("KratOS: user fault vector=0x");
+        serialWriteHex(vector);
+        serialWrite(" error=0x");
+        serialWriteHex(error_code);
+        serialWrite("\r\n");
+        kratos_user_recover();
+    }
     serialWrite("KratOS: fatal x86 exception vector=0x");
     serialWriteHex(vector);
     serialWrite(" error=0x");

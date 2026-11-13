@@ -1,6 +1,6 @@
 /* Minimal x86-64 exception entry boundary. The C ABI call is aligned before
  * entering Zig; all general-purpose registers are preserved. The dispatcher
- * currently halts, so the normalized frame is deliberately not returned from.
+ * either halts or abandons the frame via the bounded user recovery path.
  */
 .text
 .extern kratos_exception_dispatch
@@ -76,6 +76,7 @@ kratos_exception_common:
     movq 120(%rsp), %rdi       /* vector, below 15 saved registers */
     movq 128(%rsp), %rsi       /* error code */
     movq 136(%rsp), %rdx       /* interrupted instruction pointer */
+    movq 144(%rsp), %rcx       /* interrupted code selector */
     movq %rsp, %r12
     andq $-16, %rsp
     call kratos_exception_dispatch

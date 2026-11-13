@@ -41,7 +41,9 @@ mkdir -p "$OUT/iso_root/boot"
   -o "$OUT/entry.o"
 "$CLANG" --target=x86_64-none-elf -c "$ROOT/kratos/kernel/interrupts.S" \
   -o "$OUT/interrupts.o"
-"$ZIG" build-exe "$ROOT/kratos/kernel/kernel.zig" "$OUT/entry.o" "$OUT/interrupts.o" \
+"$CLANG" --target=x86_64-none-elf -c "$ROOT/kratos/kernel/user_entry.S" \
+  -o "$OUT/user_entry.o"
+"$ZIG" build-exe "$ROOT/kratos/kernel/kernel.zig" "$OUT/entry.o" "$OUT/interrupts.o" "$OUT/user_entry.o" \
   -target x86_64-freestanding -O ReleaseSmall -fno-entry -mcmodel=kernel \
   -mno-red-zone -T "$ROOT/kratos/kernel/linker.ld" \
   -femit-bin="$OUT/kratos.elf"

@@ -10,6 +10,7 @@ const presentation = @import("presentation.zig");
 const kratos_app = @import("kratos_app.zig");
 const input = @import("input.zig");
 const animation = @import("animation.zig");
+const user_mode = @import("user_mode.zig");
 
 const max_memory_map_entries = 128;
 const qemu_debug_exit_port: u16 = 0xf4;
@@ -333,8 +334,14 @@ export var request_end: [2]u64 linksection(".limine_requests_end") = .{
 export fn kratos_kernel_main() noreturn {
     console.init();
     console.write("KratOS: Limine x86_64 kernel entered\r\n");
+    user_mode.setup();
     interrupts.install();
     const memory = initializeMemoryMap();
+    if (user_mode.run(.invalid_instruction) and user_mode.run(.kernel_read) and user_mode.run(.code_write) and user_mode.run(.data_execute)) {
+        console.write("KratOS: ring3 boundary self-test passed\r\n");
+    } else {
+        console.write("KratOS: ring3 boundary self-test failed or unavailable\r\n");
+    }
     initializeFramebuffer();
     runShell(memory);
 }
