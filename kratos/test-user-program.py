@@ -1,14 +1,24 @@
 #!/usr/bin/env python3
-"""Verify two separate user-program launches and serial shell recovery."""
+"""Verify two launches of a selected KRU1 image and recovery after each."""
+import argparse
 import os
 import socket
 import subprocess
-import sys
 import tempfile
 import time
 
-iso = sys.argv[1] if len(sys.argv) > 1 else "build/kratos.iso"
-no_nx = len(sys.argv) > 2 and sys.argv[2] == "--no-nx"
+parser = argparse.ArgumentParser()
+parser.add_argument("iso", nargs="?", default="build/kratos.iso")
+parser.add_argument("--no-nx", action="store_true")
+parser.add_argument("--scenario", choices=("hello", "syscalls", "ud", "kernel-read", "code-write", "data-execute"), default="hello")
+args = parser.parse_args()
+iso, no_nx = args.iso, args.no_nx
+if no_nx and args.scenario != "hello":
+    parser.error("--no-nx requires the hello image")
+faults = {
+    "ud": (6, 0), "kernel-read": (14, 5),
+    "code-write": (14, 7), "data-execute": (14, 0x15),
+}
 with tempfile.TemporaryDirectory(prefix="kratos-program-") as directory:
     path = os.path.join(directory, "serial.sock")
     process = subprocess.Popen([
@@ -49,20 +59,27 @@ with tempfile.TemporaryDirectory(prefix="kratos-program-") as directory:
             pending = pending.split(expected, 1)[1]
 
         wait_for(b"kratos> ")
-        for _ in range(2):
+        for launch in range(2):
             serial.sendall(b"hello\r")
             if no_nx:
                 wait_for(b"hello: image unavailable, invalid, or program faulted\r\n")
+            elif args.scenario in faults:
+                vector, error = faults[args.scenario]
+                wait_for(f"KratOS: user fault vector=0x{vector:016x} error=0x{error:016x}".encode())
+                wait_for(b"hello: image unavailable, invalid, or program faulted\r\n")
+            elif args.scenario == "syscalls":
+                wait_for(b"hello: exited with status 0x0000000000000015\r\n")
             else:
                 wait_for(b"Hello from a separate user program!\r\n")
                 wait_for(b"hello: exited with status 0x0000000000000007\r\n")
             wait_for(b"kratos> ")
-        serial.sendall(b"echo shell-still-works\r")
-        wait_for(b"\r\nshell-still-works\r\nkratos> ")
+            marker = f"shell-recovered-{launch}".encode()
+            serial.sendall(b"echo " + marker + b"\r")
+            wait_for(b"\r\n" + marker + b"\r\nkratos> ")
         serial.sendall(b"shutdown\r")
         if process.wait(timeout=10) != 33:
             raise AssertionError("unexpected shutdown status")
-        print("QEMU program launch/relaunch, shell recovery and shutdown passed" + (" (NX unavailable)" if no_nx else ""))
+        print(f"QEMU {args.scenario} launch/relaunch, recovery after each, and shutdown passed" + (" (NX unavailable)" if no_nx else ""))
     finally:
         if process.poll() is None:
             process.terminate()

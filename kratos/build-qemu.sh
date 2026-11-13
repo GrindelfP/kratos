@@ -39,7 +39,16 @@ need "$QEMU"
 [ -f "$LIMINE_DIR/limine-uefi-cd.bin" ] || { echo "missing $LIMINE_DIR/limine-uefi-cd.bin" >&2; exit 1; }
 
 mkdir -p "$OUT/iso_root/boot"
-"$CLANG" --target=x86_64-none-elf -c "$ROOT/kratos/user/hello.S" -o "$OUT/hello.o"
+case ${KRATOS_TEST_USER:-hello} in
+  hello) USER_SOURCE="$ROOT/kratos/user/hello.S"; TEST_DEFINE=0 ;;
+  syscalls) USER_SOURCE="$ROOT/kratos/user/verification.S"; TEST_DEFINE=1 ;;
+  ud) USER_SOURCE="$ROOT/kratos/user/verification.S"; TEST_DEFINE=2 ;;
+  kernel-read) USER_SOURCE="$ROOT/kratos/user/verification.S"; TEST_DEFINE=3 ;;
+  code-write) USER_SOURCE="$ROOT/kratos/user/verification.S"; TEST_DEFINE=4 ;;
+  data-execute) USER_SOURCE="$ROOT/kratos/user/verification.S"; TEST_DEFINE=5 ;;
+  *) echo "unknown KRATOS_TEST_USER fixture" >&2; exit 1 ;;
+esac
+"$CLANG" --target=x86_64-none-elf -DTEST_CASE="$TEST_DEFINE" -c "$USER_SOURCE" -o "$OUT/hello.o"
 "$OBJCOPY" -O binary -j .text "$OUT/hello.o" "$OUT/hello.kru"
 # Link the independently built flat image as opaque kernel read-only data.
 cat > "$OUT/user-image.S" <<'EOF'
