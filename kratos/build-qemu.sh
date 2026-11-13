@@ -28,6 +28,7 @@ need "$CLANG"
 need "$OBJCOPY"
 need "$XORRISO"
 need "$QEMU"
+need python3
 [ -n "$LIMINE_DIR" ] || { echo "set LIMINE_DIR to a Limine release directory" >&2; exit 1; }
 [ -x "$LIMINE_DIR/limine" ] || { echo "missing executable $LIMINE_DIR/limine" >&2; exit 1; }
 "$LIMINE_DIR/limine" --version | grep -Fqx "Limine $LIMINE_VERSION" || {
@@ -50,6 +51,15 @@ case ${KRATOS_TEST_USER:-hello} in
 esac
 "$CLANG" --target=x86_64-none-elf -DTEST_CASE="$TEST_DEFINE" -c "$USER_SOURCE" -o "$OUT/hello.o"
 "$OBJCOPY" -O binary -j .text "$OUT/hello.o" "$OUT/hello.kru"
+# Package the normal program even when a boundary-test fixture is selected.
+"$CLANG" --target=x86_64-none-elf -DTEST_CASE=0 -c "$ROOT/kratos/user/hello.S" -o "$OUT/package-hello.o"
+"$OBJCOPY" -O binary -j .text "$OUT/package-hello.o" "$OUT/package-hello.kru"
+mkdir -p "$OUT/system-tree/boot" "$OUT/system-tree/packages/hello" "$OUT/system-tree/policy"
+cp "$OUT/package-hello.kru" "$OUT/system-tree/packages/hello/program"
+cp "$ROOT/kratos/user/package-message.txt" "$OUT/system-tree/packages/hello/message"
+python3 "$ROOT/kratos/tools/build-system-image.py" "$OUT/system-tree" "$ROOT/kratos/user/system-types.json" "$OUT/system.img"
+python3 "$ROOT/kratos/tools/validate-system-image.py" "$OUT/system.img"
+cp "$OUT/system.img" "$OUT/iso_root/boot/system.img"
 # Link the independently built flat image as opaque kernel read-only data.
 cat > "$OUT/user-image.S" <<'EOF'
 .section .rodata

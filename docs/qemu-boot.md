@@ -425,3 +425,24 @@ run. xorriso emitted the documented EFI-directory warning; only BIOS was tested.
 These checks verify a bounded single-program milestone, not full process
 isolation, POSIX conformance, or a general security guarantee. A looping user
 program still has no timeout or preemption.
+
+## Read-only system image
+
+The normal build requires Python 3 and generates `build/system.img` (or
+`$OUT_DIR/system.img`). It packages the normal KRU1 hello program and a text
+message, validates the result, and places it at `/boot/system.img` in the ISO.
+Limine loads it as a boot module; the current kernel does not mount it yet.
+The compiled-in program remains in use until ticket 0026. The builder accepts a
+system tree containing exactly the `boot`, `packages`, and `policy` root
+directories and a JSON mapping of each relative file path to `opaque`, `text`,
+or `executable`. For example, after the normal build:
+
+```sh
+python3 kratos/tools/build-system-image.py build/system-tree kratos/user/system-types.json build/system.img
+python3 kratos/tools/validate-system-image.py build/system.img
+python3 kratos/tools/test-system-image.py
+```
+
+See [system-image-format.md](system-image-format.md) for the binary format and
+limits. The build's `system-tree` is generated output; use a clean output
+directory if its contents have been modified.

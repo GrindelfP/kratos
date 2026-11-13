@@ -1,6 +1,6 @@
 # Build and validate a read-only space image
 
-**Status:** planned
+**Status:** done
 
 ## Description
 
@@ -32,3 +32,11 @@ program, replacing the idea that every program must be linked into the kernel.
 Depends on [0022](0022-filesystem-namespace-contract.md). The image is the
 smallest testable source of named program files. Kernel mounting and lookup are
 separate in [0024](0024-kernel-readonly-files.md).
+
+## Verification
+
+`python3 kratos/tools/test-system-image.py` passes deterministic build and
+malformed-image tests. The documented build with Zig 0.17.0 and Limine 12.9.6
+created and validated the ISO image; `python3 kratos/test-user-program.py
+/tmp/kratos-ticket-0023/kratos.iso` passed launch, relaunch, shell recovery and
+shutdown in QEMU. Mounting and consuming the module are deferred to 0024.
