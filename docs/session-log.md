@@ -103,3 +103,5 @@
 [2026-11-13] - [19:32 MSK] - Completed ticket 0028: added a versioned dual-slot CRC copy-on-write volume with bounded space/file mutation, stable IDs, boot mounting, shell mutation commands, and interruption-recovery tests. Host volume and shell tests plus a freestanding link passed; QEMU fixtures await Zig 0.17.0 and Limine assets.
 
 [2026-11-13] - [19:45 MSK] - Completed ticket 0029: persisted stable accounts and grants, enforced owner/editor/reader policy in shell and user file reads, and verified metadata, shell, dispatcher, and syscall host suites; QEMU remains environment-blocked.
+
+[2026-11-13] - [20:30 MSK] - Completed ticket 0030: provisioned pinned Zig 0.17.0, Limine 12.9.6, and GNU objcopy locally; rebuilt fresh ISO images and passed QEMU system-mount, packaged-program, user-boundary, serial, keyboard, ATA persistence, writable-space remount, and two-boot owner/editor/reader grant and revocation fixtures.

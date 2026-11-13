@@ -1,6 +1,6 @@
 # Verify the native filesystem milestone in QEMU
 
-**Status:** planned
+**Status:** completed
 
 ## Description
 
@@ -46,13 +46,12 @@ Host verification passed on this machine with Zig 0.17.1:
   the build, data-image, and serial-test scripts passed.
 - Manually linked the current freestanding kernel with Zig 0.17.1 and Clang.
 
-QEMU acceptance remains unverified. `./kratos/build-qemu.sh --build-only`
-stops with `expected Zig 0.17.0`; no Limine 12.9.6 host executable/release
-files are installed. The existing ignored `build/kratos.iso` is dated
-2026-11-01 and predates this milestone, so it is not valid evidence. Run the
-commands in the QEMU guide's “Native filesystem milestone verification gate”
-after providing the pinned build prerequisites. The current guest fixtures
-cover read-only mount/malformed-image recovery and successful block/writable
-persistence. Writable corruption, forced exhaustion, interrupted-update
-recovery, and the full principal/grant matrix have host tests but no guest
-fixture yet.
+QEMU acceptance passed with project-local Zig 0.17.0, Limine 12.9.6, GNU
+`gobjcopy`, QEMU, and fresh temporary ISO/data images. The system-mount,
+packaged-program, user-boundary, serial-shell, ATA persistence, writable-space
+create/write/remount, keyboard-shell, and malformed-package recovery fixtures
+passed. The two-boot shared-space fixture verifies owner/editor/reader roles,
+denied reader writes, revocation, and persistence. Corrupt writable metadata,
+capacity exhaustion, and interrupted updates retain their focused host-test
+coverage; the system does not claim secure login, general process isolation,
+POSIX conformance, saved views, or broad hardware support.
