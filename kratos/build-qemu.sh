@@ -8,6 +8,7 @@ LIMINE_VERSION=12.9.6
 ZIG_VERSION=0.17.0
 ZIG=${ZIG:-zig}
 CLANG=${CLANG:-clang}
+OBJCOPY=${OBJCOPY:-objcopy}
 XORRISO=${XORRISO:-xorriso}
 QEMU=${QEMU:-qemu-system-x86_64}
 
@@ -24,6 +25,7 @@ need "$ZIG"
   exit 1
 }
 need "$CLANG"
+need "$OBJCOPY"
 need "$XORRISO"
 need "$QEMU"
 [ -n "$LIMINE_DIR" ] || { echo "set LIMINE_DIR to a Limine release directory" >&2; exit 1; }
@@ -37,13 +39,25 @@ need "$QEMU"
 [ -f "$LIMINE_DIR/limine-uefi-cd.bin" ] || { echo "missing $LIMINE_DIR/limine-uefi-cd.bin" >&2; exit 1; }
 
 mkdir -p "$OUT/iso_root/boot"
+"$CLANG" --target=x86_64-none-elf -c "$ROOT/kratos/user/hello.S" -o "$OUT/hello.o"
+"$OBJCOPY" -O binary -j .text "$OUT/hello.o" "$OUT/hello.kru"
+# Link the independently built flat image as opaque kernel read-only data.
+cat > "$OUT/user-image.S" <<'EOF'
+.section .rodata
+.globl kratos_program_begin, kratos_program_end
+kratos_program_begin:
+.incbin "hello.kru"
+kratos_program_end:
+.section .note.GNU-stack,"",@progbits
+EOF
+(cd "$OUT" && "$CLANG" --target=x86_64-none-elf -c user-image.S -o user-image.o)
 "$CLANG" --target=x86_64-none-elf -c "$ROOT/kratos/kernel/entry.S" \
   -o "$OUT/entry.o"
 "$CLANG" --target=x86_64-none-elf -c "$ROOT/kratos/kernel/interrupts.S" \
   -o "$OUT/interrupts.o"
 "$CLANG" --target=x86_64-none-elf -c "$ROOT/kratos/kernel/user_entry.S" \
   -o "$OUT/user_entry.o"
-"$ZIG" build-exe "$ROOT/kratos/kernel/kernel.zig" "$OUT/entry.o" "$OUT/interrupts.o" "$OUT/user_entry.o" \
+"$ZIG" build-exe "$ROOT/kratos/kernel/kernel.zig" "$OUT/entry.o" "$OUT/interrupts.o" "$OUT/user_entry.o" "$OUT/user-image.o" \
   -target x86_64-freestanding -O ReleaseSmall -fno-entry -mcmodel=kernel \
   -mno-red-zone -T "$ROOT/kratos/kernel/linker.ld" \
   -femit-bin="$OUT/kratos.elf"

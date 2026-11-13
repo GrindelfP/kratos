@@ -2,6 +2,7 @@
 const std = @import("std");
 const interrupts = @import("interrupts.zig");
 const ranges = @import("user_ranges.zig");
+const image = @import("user_image.zig");
 
 const HhdmResponse = extern struct { revision: u64, offset: u64 };
 const HhdmRequest = extern struct { id: [4]u64, revision: u64, response: ?*const HhdmResponse };
@@ -32,8 +33,10 @@ extern const kratos_user_nx_begin: u8;
 extern const kratos_user_nx_end: u8;
 extern const kratos_user_syscalls_begin: u8;
 extern const kratos_user_syscalls_end: u8;
+extern const kratos_program_begin: u8;
+extern const kratos_program_end: u8;
 
-pub const Test = enum { invalid_instruction, kernel_read, code_write, data_execute, syscalls };
+pub const Test = enum { invalid_instruction, kernel_read, code_write, data_execute, syscalls, program };
 
 fn physical(ptr: *const anyopaque, address: *const AddressResponse) ?u64 {
     const virtual = @intFromPtr(ptr);
@@ -95,16 +98,22 @@ pub fn run(test_case: Test) bool {
         .code_write => .{ @intFromPtr(&kratos_user_write_begin), @intFromPtr(&kratos_user_write_end) },
         .data_execute => .{ @intFromPtr(&kratos_user_nx_begin), @intFromPtr(&kratos_user_nx_end) },
         .syscalls => .{ @intFromPtr(&kratos_user_syscalls_begin), @intFromPtr(&kratos_user_syscalls_end) },
+        .program => .{ @intFromPtr(&kratos_program_begin), @intFromPtr(&kratos_program_end) },
     };
-    if (end <= begin or end - begin > code.len) return false;
+    if (end <= begin or end - begin > code.len + 12) return false;
     const snippet: [*]const u8 = @ptrFromInt(begin);
-    @memcpy(code[0 .. end - begin], snippet[0 .. end - begin]);
+    const entry = if (test_case == .program) image.load(snippet[0 .. end - begin], &code) catch return false else blk: {
+        if (end - begin > code.len) return false;
+        @memcpy(code[0 .. end - begin], snippet[0 .. end - begin]);
+        break :blk 0;
+    };
     interrupts.user_vector = 0;
     interrupts.user_error = 0;
     interrupts.user_exited = false;
     interrupts.user_exit = 0;
     interrupts.user_active = true;
-    kratos_user_enter(root_phys, 0x400000, 0x403000);
+    kratos_user_enter(root_phys, 0x400000 + entry, 0x403000);
+    if (test_case == .program) return interrupts.user_exited;
     if (test_case == .syscalls) return data[0] == 0x23 and data[1] == 0 and interrupts.user_exited and interrupts.user_exit == 42;
     const vector: u64, const error_code: u64 = switch (test_case) {
         .invalid_instruction => .{ 6, 0 },
@@ -112,6 +121,7 @@ pub fn run(test_case: Test) bool {
         .code_write => .{ 14, 7 },
         .data_execute => .{ 14, 0x15 },
         .syscalls => unreachable,
+        .program => unreachable,
     };
     return data[0] == 0x23 and data[1] == 0 and interrupts.user_vector == vector and interrupts.user_error == error_code;
 }

@@ -2,9 +2,9 @@
 //! here; callers supply the writer and a compact snapshot of boot memory data.
 
 pub const max_line_length = 128;
-pub const names = [_][]const u8{ "help", "about", "echo", "mem", "clear", "kratos", "halt", "shutdown" };
+pub const names = [_][]const u8{ "help", "about", "echo", "mem", "clear", "kratos", "halt", "shutdown", "hello" };
 
-pub const Action = enum { continue_shell, halt, kratos, shutdown };
+pub const Action = enum { continue_shell, halt, kratos, shutdown, hello };
 
 pub const MemorySummary = struct {
     map_entries: usize = 0,
@@ -30,7 +30,7 @@ pub fn execute(context: *Context, line: []const u8) Error!Action {
     const command = input[0..split];
     const args = if (split < input.len) trim(input[split..]) else "";
     if (eql(command, names[0])) {
-        context.write(context.writer_context, "help about echo mem clear kratos halt shutdown\r\n");
+        context.write(context.writer_context, "help about echo mem clear kratos halt shutdown hello\r\n");
     } else if (eql(command, names[1])) {
         context.write(context.writer_context, "KratOS: a small hobby operating system\r\n");
     } else if (eql(command, names[2])) {
@@ -62,6 +62,8 @@ pub fn execute(context: *Context, line: []const u8) Error!Action {
         return .halt;
     } else if (eql(command, names[7])) {
         return .shutdown;
+    } else if (eql(command, names[8])) {
+        return .hello;
     } else {
         context.write(context.writer_context, "Unknown command: ");
         context.write(context.writer_context, command);

@@ -312,6 +312,14 @@ fn runShell(memory: shell_commands.MemorySummary) noreturn {
             continue;
         };
         if (action == .kratos) { runKratos(); continue; }
+        if (action == .hello) {
+            if (user_mode.run(.program)) {
+                console.write("hello: exited with status 0x");
+                serialWriteHex(interrupts.user_exit);
+                console.write("\r\n");
+            } else console.write("hello: image unavailable, invalid, or program faulted\r\n");
+            continue;
+        }
         if (action == .halt) {
             console.write("KratOS halted\r\n");
             while (true) asm volatile ("cli; hlt");
