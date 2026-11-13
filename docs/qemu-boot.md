@@ -475,3 +475,45 @@ python3 kratos/tools/test-system-image.py
 See [system-image-format.md](system-image-format.md) for the binary format and
 limits. The build's `system-tree` is generated output; use a clean output
 directory if its contents have been modified.
+
+## Optional QEMU data disk
+
+The writable-storage probe supports exactly one legacy primary-master ATA
+disk using 28-bit LBA PIO on ports `0x1f0`–`0x1f7` and alternate status at
+`0x3f6`. The documented QEMU path adds `piix3-ide` and attaches one raw image
+as its first disk. Sector size is 512 bytes; the driver limits a command to
+128 sectors and the addressable capacity to 268,435,456 sectors (128 GiB).
+Every status poll is capped at 1,000,000 iterations. Errors distinguish an
+absent device, poll timeout, device I/O failure, out-of-range request, and
+unsupported cache flush. Flush support is detected from IDENTIFY data. A write
+returns after ATA reports completion; callers that require the device's cache
+to be committed must also call flush. This is a QEMU profile, not general
+hardware support.
+
+Create a blank 64 MiB image without replacing an existing path, then build and
+launch with it:
+
+```sh
+./kratos/create-data-image.sh /tmp/kratos-data.img
+KRATOS_DATA_IMAGE=/tmp/kratos-data.img ./kratos/build-qemu.sh
+```
+
+`KRATOS_DATA_IMAGE` must name an existing raw image. Without it the kernel
+reports that the data disk is absent and continues with the read-only system
+mount and recovery shell. An attached but unformatted disk is only a block
+device at this milestone; the writable-space format and mutations are covered
+by ticket 0028. `block_device.zig` host tests exercise request bounds and error
+propagation. For the isolated device regression, build a fixture ISO and a
+disposable image, then boot the same image twice:
+
+```sh
+KRATOS_TEST_BLOCK=1 OUT_DIR=/tmp/kratos-block-iso ./kratos/build-qemu.sh --build-only
+./kratos/create-data-image.sh /tmp/kratos-block-data.img 64M
+ISO=/tmp/kratos-block-iso/kratos.iso KRATOS_DATA_IMAGE=/tmp/kratos-block-data.img \
+  python3 kratos/test-block-device.py
+```
+
+The fixture marker limits the test write to the final sector of the explicitly
+disposable test image. The first boot writes, flushes, and reads a pattern; the
+second boot verifies persistence, exercises shell recovery, and shuts down.
+Normal images contain no marker and never run this test path.

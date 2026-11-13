@@ -57,10 +57,18 @@ esac
 mkdir -p "$OUT/system-tree/boot" "$OUT/system-tree/packages/hello" "$OUT/system-tree/policy"
 cp "$OUT/package-hello.kru" "$OUT/system-tree/packages/hello/program"
 cp "$ROOT/kratos/user/package-message.txt" "$OUT/system-tree/packages/hello/message"
+if [ "${KRATOS_TEST_BLOCK:-0}" = 1 ]; then
+  : > "$OUT/system-tree/policy/blocktest"
+  SYSTEM_TYPES="$OUT/system-types-blocktest.json"
+  cp "$ROOT/kratos/user/system-types.json" "$SYSTEM_TYPES"
+  python3 -c 'import json,sys; p=sys.argv[1]; d=json.load(open(p)); d["policy/blocktest"]="opaque"; json.dump(d,open(p,"w"))' "$SYSTEM_TYPES"
+else
+  SYSTEM_TYPES="$ROOT/kratos/user/system-types.json"
+fi
 if [ "${KRATOS_TEST_SYSTEM_IMAGE:-normal}" = "malformed-program" ]; then
   printf 'BAD KRU1 payload' > "$OUT/system-tree/packages/hello/program"
 fi
-python3 "$ROOT/kratos/tools/build-system-image.py" "$OUT/system-tree" "$ROOT/kratos/user/system-types.json" "$OUT/system.img"
+python3 "$ROOT/kratos/tools/build-system-image.py" "$OUT/system-tree" "$SYSTEM_TYPES" "$OUT/system.img"
 python3 "$ROOT/kratos/tools/validate-system-image.py" "$OUT/system.img"
 case ${KRATOS_TEST_SYSTEM_IMAGE:-normal} in
   normal|malformed-program) ;;
@@ -92,6 +100,15 @@ cp "$LIMINE_DIR/limine-bios.sys" "$LIMINE_DIR/limine-bios-cd.bin" \
 if [ "${1:-}" = "--build-only" ]; then
   echo "built $OUT/kratos.iso"
   exit 0
+fi
+if [ -n "${KRATOS_DATA_IMAGE:-}" ]; then
+  [ -f "$KRATOS_DATA_IMAGE" ] || { echo "data image does not exist: $KRATOS_DATA_IMAGE" >&2; exit 1; }
+  exec "$QEMU" -M q35 -m 256M -cdrom "$OUT/kratos.iso" -boot order=d \
+    -device piix3-ide,id=kratos-ide \
+    -drive if=none,id=kratos-data,file="$KRATOS_DATA_IMAGE",format=raw \
+    -device ide-hd,drive=kratos-data,bus=kratos-ide.0 \
+    -device isa-debug-exit,iobase=0xf4,iosize=0x04 \
+    -serial stdio -display "${QEMU_DISPLAY:-default}" -no-reboot
 fi
 exec "$QEMU" -M q35 -m 256M -cdrom "$OUT/kratos.iso" -boot order=d \
   -device isa-debug-exit,iobase=0xf4,iosize=0x04 \

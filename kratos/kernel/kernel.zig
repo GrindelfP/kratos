@@ -13,6 +13,7 @@ const animation = @import("animation.zig");
 const user_mode = @import("user_mode.zig");
 const system_image = @import("system_image.zig");
 const space_shell = @import("space_shell.zig");
+const ata_pio = @import("ata_pio.zig");
 
 const max_memory_map_entries = 128;
 const qemu_debug_exit_port: u16 = 0xf4;
@@ -55,6 +56,8 @@ var allocation_cursors: [max_memory_map_entries]u64 = undefined;
 var frame_allocator: memory_map.FrameAllocator = undefined;
 var system_records: [system_image.max_objects]system_image.Record = undefined;
 var system_volume: system_image.Volume = .{};
+var data_controller = ata_pio.Controller{};
+var data_device: @import("block_device.zig").Device = .{};
 var packaged_program: [12 + 4096]u8 = undefined;
 var shell_writer_context: u8 = 0;
 var keyboard_decoder = input.Decoder{};
@@ -333,6 +336,60 @@ fn initializeSystemMount() void {
     console.write("KratOS: system image mounted read-only\r\n");
 }
 
+fn initializeDataDevice() void {
+    data_controller.probe() catch |err| {
+        data_device = .{};
+        switch (err) {
+            error.NoDevice => console.write("KratOS: data disk absent; read-only system space and recovery shell active\r\n"),
+            error.Timeout => console.write("KratOS: data disk probe timed out; recovery shell active\r\n"),
+            else => console.write("KratOS: data disk probe failed; recovery shell active\r\n"),
+        }
+        return;
+    };
+    data_device = data_controller.device();
+    console.write("KratOS: ATA PIO data disk sectors=");
+    serialWriteHex(data_controller.sectors);
+    console.write(" sector-size=512\r\n");
+}
+
+fn runBlockDeviceFixture() void {
+    _ = system_volume.lookup("system:/policy/blocktest") catch return;
+    if (data_device.sector_count < 2) {
+        console.write("KratOS: block test requires an attached data disk; recovery shell active\r\n");
+        return;
+    }
+    const block_device = @import("block_device.zig");
+    const lba = data_device.sector_count - 1;
+    var expected: [block_device.sector_size]u8 = undefined;
+    for (&expected, 0..) |*byte, index| byte.* = @truncate(index ^ 0xa5);
+    var actual: [block_device.sector_size]u8 = undefined;
+    data_device.read(lba, 1, &actual) catch {
+        console.write("KratOS: block test read failed; recovery shell active\r\n");
+        return;
+    };
+    if (std.mem.eql(u8, &actual, &expected)) {
+        console.write("KratOS: block device write/read/reboot persistence passed\r\n");
+        return;
+    }
+    data_device.write(lba, 1, &expected) catch {
+        console.write("KratOS: block test write failed; recovery shell active\r\n");
+        return;
+    };
+    data_device.flush() catch {
+        console.write("KratOS: block test flush failed; recovery shell active\r\n");
+        return;
+    };
+    data_device.read(lba, 1, &actual) catch {
+        console.write("KratOS: block test verification read failed; recovery shell active\r\n");
+        return;
+    };
+    if (!std.mem.eql(u8, &actual, &expected)) {
+        console.write("KratOS: block test verification mismatch; recovery shell active\r\n");
+        return;
+    }
+    console.write("KratOS: block device write/read passed; reboot to verify persistence\r\n");
+}
+
 fn launchPackagedHello() bool {
     const handle = system_volume.lookup("system:/packages/hello/program") catch return false;
     const info = system_volume.stat(handle) catch return false;
@@ -404,6 +461,8 @@ export fn kratos_kernel_main() noreturn {
     interrupts.install();
     const memory = initializeMemoryMap();
     initializeSystemMount();
+    initializeDataDevice();
+    runBlockDeviceFixture();
     interrupts.setSystemVolume(&system_volume);
     if (user_mode.run(.invalid_instruction) and user_mode.run(.kernel_read) and user_mode.run(.code_write) and user_mode.run(.data_execute)) {
         console.write("KratOS: ring3 boundary self-test passed\r\n");
