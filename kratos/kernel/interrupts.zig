@@ -20,6 +20,7 @@ extern const kratos_exception_stub_table: [32]usize;
 extern fn kratos_syscall_entry() void;
 const syscalls = @import("user_syscalls.zig");
 const system_image = @import("system_image.zig");
+const writable_volume = @import("writable_volume.zig");
 const console = @import("console.zig");
 
 var idt: [129]Gate = @splat(.{
@@ -92,8 +93,16 @@ pub var user_exit: u64 = 0;
 pub var user_exited = false;
 var user_files: syscalls.Files = undefined;
 
-pub fn setSystemVolume(volume: *const system_image.Volume) void { user_files = .{ .volume = volume }; }
-pub fn resetUserFiles() void { user_files.reset(); }
+pub fn setSystemVolume(volume: *const system_image.Volume) void {
+    user_files = .{ .volume = volume };
+}
+pub fn setDataVolume(volume: ?*const writable_volume.Volume, principal: u64) void {
+    user_files.data = volume;
+    user_files.principal = principal;
+}
+pub fn resetUserFiles() void {
+    user_files.reset();
+}
 
 export fn kratos_syscall_dispatch(number: u64, arg1: u64, arg2: u64, arg3: u64, cs: u64) u64 {
     if (!user_active or cs & 3 != 3) {

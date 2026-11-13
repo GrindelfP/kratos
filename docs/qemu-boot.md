@@ -225,7 +225,7 @@ Example interaction (memory values depend on the Limine map):
 
 ```text
 kratos> help
-help about echo mem clear kratos halt shutdown hello spaces ls pwd cd cat
+help about echo mem clear kratos halt shutdown hello spaces ls pwd cd cat space-format space-create space-list mkdir touch write read mv rm account-list account-create account-use account-rename account-disable grant revoke
 kratos> about
 KratOS: a small hobby operating system
 kratos> echo hello KratOS
@@ -502,7 +502,16 @@ KRATOS_DATA_IMAGE=/tmp/kratos-data.img ./kratos/build-qemu.sh
 reports that the data disk is absent and continues with the read-only system
 mount and recovery shell. An attached but unformatted disk is left untouched.
 Use `space-format` only with a blank image; it verifies both metadata slots are
-zero before writing. Then `space-create home`, `mkdir home:/work/notes`,
+zero before writing and creates the privileged recovery account `admin` with
+its private space. Use `account-list`, `account-create alice`, and
+`account-use alice` to select a principal in the privileged test shell;
+`account-rename <id> <name>` preserves its stable ID, and
+`account-disable <id>` disables selection while retaining data and ownership.
+For a shared space, its owner can use `grant team: <account-id> reader|editor`
+and `revoke team: <account-id>`. Owners and editors can mutate files; readers
+can only read. These shell account commands are privileged test controls, not
+password login or a security boundary against shell access. Then
+`space-create home`, `mkdir home:/work/notes`,
 `touch home:/work/notes/today`, and `write home:/work/notes/today hello` create
 and write a file. `read` displays up to 96 bytes, `space-list` lists spaces,
 `mv <source> <destination>` renames or moves within one space, and `rm` removes

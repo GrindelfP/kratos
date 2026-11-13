@@ -1,6 +1,7 @@
 //! Policy for the fixed embedded context's non-POSIX syscall ABI.
 const std = @import("std");
 const system = @import("system_image.zig");
+const data_volume_mod = @import("writable_volume.zig");
 pub const max_output: u64 = 1024;
 pub const max_path: u64 = 255;
 pub const max_read: u64 = 512;
@@ -13,6 +14,7 @@ pub const stale_handle: u64 = @bitCast(@as(i64, -6));
 pub const unavailable: u64 = @bitCast(@as(i64, -7));
 pub const no_handles: u64 = @bitCast(@as(i64, -8));
 pub const bad_path: u64 = @bitCast(@as(i64, -9));
+pub const denied: u64 = @bitCast(@as(i64, -10));
 pub const Action = union(enum) { output: struct { address: u64, length: u64 }, open: struct { address: u64, length: u64 }, read: struct { handle: u64, address: u64, length: u64 }, close: u64, exit: u64, result: u64 };
 
 /// All three pages are present and user-readable for the lifetime of a run.
@@ -38,19 +40,40 @@ pub fn dispatch(number: u64, arg1: u64, arg2: u64, arg3: u64) Action {
 /// Handles are local to one fixed user run and use generation-tagged values so
 /// stale numeric handles cannot alias a subsequently opened file.
 pub const Files = struct {
-    const Slot = struct { handle: system.Handle = .{ .id = 0 }, cursor: usize = 0, generation: u32 = 0, open: bool = false };
+    const Source = enum { system, writable };
+    const Slot = struct { handle: system.Handle = .{ .id = 0 }, data_handle: data_volume_mod.Handle = .{ .id = 0 }, source: Source = .system, cursor: usize = 0, generation: u32 = 0, open: bool = false };
     volume: *const system.Volume,
+    data: ?*const data_volume_mod.Volume = null,
+    principal: u64 = 1,
     slots: [4]Slot = @splat(.{}),
 
-    pub fn reset(self: *Files) void { for (&self.slots) |*slot| { slot.open = false; slot.cursor = 0; slot.generation +%= 1; } }
+    pub fn reset(self: *Files) void {
+        for (&self.slots) |*slot| {
+            slot.open = false;
+            slot.cursor = 0;
+            slot.generation +%= 1;
+        }
+    }
     pub fn open(self: *Files, path: []const u8) u64 {
-        const volume = self.volume.mount orelse return unavailable;
-        const object = volume.lookup(path) catch |err| return mapError(err);
-        const info = volume.stat(object) catch |err| return mapError(err);
-        if (info.kind != .file) return wrong_kind;
+        var source: Source = .system;
+        var object: system.Handle = undefined;
+        var data_object: data_volume_mod.Handle = undefined;
+        if (std.mem.startsWith(u8, path, "system:")) {
+            const volume = self.volume.mount orelse return unavailable;
+            object = volume.lookup(path) catch |err| return mapSystemError(err);
+            const info = volume.stat(object) catch |err| return mapSystemError(err);
+            if (info.kind != .file) return wrong_kind;
+        } else {
+            const volume = self.data orelse return unavailable;
+            data_object = volume.lookupAs(path, self.principal) catch |err| return mapDataError(err);
+            const info = volume.stat(data_object) catch |err| return mapDataError(err);
+            if (info.kind != .file) return wrong_kind;
+            source = .writable;
+        }
         for (&self.slots, 0..) |*slot, i| if (!slot.open) {
             slot.generation +%= 1;
-            slot.handle = object;
+            slot.source = source;
+            if (source == .system) slot.handle = object else slot.data_handle = data_object;
             slot.cursor = 0;
             slot.open = true;
             return (@as(u64, slot.generation) << 8) | (i + 1);
@@ -59,8 +82,13 @@ pub const Files = struct {
     }
     pub fn read(self: *Files, handle: u64, output: []u8) u64 {
         const entry = self.getSlot(handle) orelse return stale_handle;
-        const volume = self.volume.mount orelse return unavailable;
-        const amount = volume.read(entry.handle, entry.cursor, output) catch |err| return mapError(err);
+        const amount = if (entry.source == .system) blk: {
+            const volume = self.volume.mount orelse return unavailable;
+            break :blk volume.read(entry.handle, entry.cursor, output) catch |err| return mapSystemError(err);
+        } else blk: {
+            const volume = self.data orelse return unavailable;
+            break :blk volume.readAs(entry.data_handle, self.principal, entry.cursor, output) catch |err| return mapDataError(err);
+        };
         entry.cursor += amount;
         return amount;
     }
@@ -78,7 +106,25 @@ pub const Files = struct {
     }
 };
 
-fn mapError(err: system.Error) u64 { return switch (err) { error.Unavailable => unavailable, error.NotFound => not_found, error.WrongKind => wrong_kind, error.InvalidPath => bad_path, else => bad_range }; }
+fn mapSystemError(err: system.Error) u64 {
+    return switch (err) {
+        error.Unavailable => unavailable,
+        error.NotFound => not_found,
+        error.WrongKind => wrong_kind,
+        error.InvalidPath => bad_path,
+        else => bad_range,
+    };
+}
+fn mapDataError(err: data_volume_mod.Error) u64 {
+    return switch (err) {
+        error.AccessDenied => denied,
+        error.Unformatted, error.NoDevice => unavailable,
+        error.NotFound => not_found,
+        error.WrongKind => wrong_kind,
+        error.InvalidPath, error.InvalidName => bad_path,
+        else => bad_range,
+    };
+}
 test "bounded complete ranges" {
     try std.testing.expect(readable(0, 0));
     try std.testing.expect(readable(0x400fff, 2));

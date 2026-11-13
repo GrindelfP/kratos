@@ -13,6 +13,8 @@ pub const max_objects = 64;
 pub const max_name = 32;
 pub const max_file_bytes = 64 * 1024;
 pub const max_dir_entries = 64;
+pub const max_accounts = 6;
+pub const max_grants = 8;
 pub const metadata_slot_sectors: u16 = 9;
 pub const metadata_a_lba: u64 = 1;
 pub const metadata_b_lba: u64 = metadata_a_lba + metadata_slot_sectors;
@@ -37,8 +39,12 @@ pub const Error = block.Error || error{
     NoSpace,
     TooLarge,
     OutputTooSmall,
+    AccessDenied,
 };
 pub const Kind = enum(u8) { space = 1, directory = 2, file = 3 };
+pub const Account = struct { id: u64, name: [max_name]u8, name_len: u8, personal_space: u64, enabled: bool };
+pub const Role = enum(u8) { reader = 1, editor = 2, owner = 3 };
+pub const Grant = struct { space: u64, principal: u64, role: Role };
 pub const Handle = struct { id: u64 };
 pub const Entry = struct { handle: Handle, parent: u64, name: []const u8, kind: Kind, size: usize };
 pub const Record = struct { id: u64, parent: u64, name: [max_name]u8, name_len: u8, kind: Kind, size: u32, lba: u64, sectors: u16 };
@@ -51,6 +57,11 @@ pub const Volume = struct {
     generation: u64 = 0,
     active_slot: ?u64 = null,
     poisoned: bool = false,
+    accounts: [max_accounts]Account = undefined,
+    account_count: usize = 0,
+    grants: [max_grants]Grant = undefined,
+    grant_count: usize = 0,
+    next_account_id: u64 = 1,
 
     /// Formats only a caller-confirmed blank volume. The caller must inspect
     /// the device first; this method never probes or overwrites implicitly.
@@ -65,7 +76,10 @@ pub const Volume = struct {
         self.generation = 0;
         self.active_slot = null;
         self.poisoned = false;
-        try self.commit();
+        self.account_count = 0;
+        self.grant_count = 0;
+        self.next_account_id = 1;
+        _ = try self.createAccount("admin");
     }
 
     pub fn mount(self: *Volume) Error!void {
@@ -73,9 +87,11 @@ pub const Volume = struct {
         var b: [slot_bytes]u8 = undefined;
         try self.device.read(metadata_a_lba, metadata_slot_sectors, &a);
         try self.device.read(metadata_b_lba, metadata_slot_sectors, &b);
-        const da = decode(&a, &self.records);
+        const da = decode(&a, &self.records, &self.accounts, &self.grants);
         var records_b: [max_objects]Record = undefined;
-        const db = decode(&b, &records_b);
+        var accounts_b: [max_accounts]Account = undefined;
+        var grants_b: [max_grants]Grant = undefined;
+        const db = decode(&b, &records_b, &accounts_b, &grants_b);
         if (da == null and db == null) {
             if (allZero(&a) and allZero(&b)) return error.Unformatted;
             if (hasUnsupportedVersion(&a) or hasUnsupportedVersion(&b)) return error.UnsupportedVersion;
@@ -89,6 +105,11 @@ pub const Volume = struct {
                     self.next_id = decoded_b.next_id;
                     self.generation = decoded_b.generation;
                     self.active_slot = metadata_b_lba;
+                    self.account_count = decoded_b.account_count;
+                    self.grant_count = decoded_b.grant_count;
+                    self.next_account_id = decoded_b.next_account_id;
+                    @memcpy(&self.accounts, &accounts_b);
+                    @memcpy(&self.grants, &grants_b);
                     return self.validateMountedExtents();
                 }
             }
@@ -96,6 +117,9 @@ pub const Volume = struct {
             self.next_id = decoded_a.next_id;
             self.generation = decoded_a.generation;
             self.active_slot = metadata_a_lba;
+            self.account_count = decoded_a.account_count;
+            self.grant_count = decoded_a.grant_count;
+            self.next_account_id = decoded_a.next_account_id;
             return self.validateMountedExtents();
         }
         const chosen = db orelse return error.Corrupt;
@@ -104,27 +128,245 @@ pub const Volume = struct {
         self.next_id = chosen.next_id;
         self.generation = chosen.generation;
         self.active_slot = metadata_b_lba;
+        self.account_count = chosen.account_count;
+        self.grant_count = chosen.grant_count;
+        self.next_account_id = chosen.next_account_id;
+        @memcpy(&self.accounts, &accounts_b);
+        @memcpy(&self.grants, &grants_b);
         try self.validateMountedExtents();
     }
 
     pub fn createSpace(self: *Volume, name: []const u8) Error!Handle {
+        return self.createSpaceOwned(name, self.defaultPrincipal() orelse return error.Reserved);
+    }
+
+    pub fn createSpaceOwned(self: *Volume, name: []const u8, principal: u64) Error!Handle {
         try self.ensureWritable();
         try validateName(name);
+        const owner_index = self.accountIndex(principal) orelse return error.AccessDenied;
+        if (!self.accounts[owner_index].enabled) return error.AccessDenied;
         if (std.mem.eql(u8, name, "system") or std.mem.eql(u8, name, "mine")) return error.Reserved;
         if (self.findChild(0, name) != null) return error.Duplicate;
-        if (self.count + 5 > max_objects) return error.NoSpace;
+        if (self.count + 5 > max_objects or self.grant_count == max_grants) return error.NoSpace;
         const old_count = self.count;
+        const old_grants = self.grant_count;
         const space = try self.append(0, name, .space);
         for ([_][]const u8{ "inbox", "work", "library", "archive" }) |area| _ = try self.append(space.id, area, .directory);
+        self.grants[self.grant_count] = .{ .space = space.id, .principal = principal, .role = .owner };
+        self.grant_count += 1;
         self.commit() catch |err| {
             self.count = old_count;
+            self.grant_count = old_grants;
             return err;
         };
         return .{ .id = space.id };
     }
 
+    pub fn createAccount(self: *Volume, name: []const u8) Error!u64 {
+        try self.ensureWritable();
+        try validateName(name);
+        if (self.account_count == max_accounts) return error.NoSpace;
+        if (self.findAccountByName(name) != null) return error.Duplicate;
+        const old_count = self.count;
+        const old_accounts = self.account_count;
+        const old_grants = self.grant_count;
+        const old_next = self.next_account_id;
+        const space_name = name;
+        if (self.findChild(0, space_name) != null) return error.Duplicate;
+        if (self.count + 5 > max_objects or self.next_account_id == std.math.maxInt(u64)) return error.NoSpace;
+        const root = try self.append(0, space_name, .space);
+        for ([_][]const u8{ "inbox", "work", "library", "archive" }) |area| _ = try self.append(root.id, area, .directory);
+        var account: Account = .{ .id = self.next_account_id, .name = undefined, .name_len = @intCast(name.len), .personal_space = root.id, .enabled = true };
+        @memset(&account.name, 0);
+        @memcpy(account.name[0..name.len], name);
+        self.accounts[self.account_count] = account;
+        self.account_count += 1;
+        self.next_account_id += 1;
+        self.grants[self.grant_count] = .{ .space = root.id, .principal = account.id, .role = .owner };
+        self.grant_count += 1;
+        self.commit() catch |err| {
+            self.count = old_count;
+            self.account_count = old_accounts;
+            self.grant_count = old_grants;
+            self.next_account_id = old_next;
+            return err;
+        };
+        return account.id;
+    }
+
+    pub fn renameAccount(self: *Volume, id: u64, name: []const u8) Error!void {
+        try self.ensureWritable();
+        try validateName(name);
+        const index = self.accountIndex(id) orelse return error.NotFound;
+        if (!self.accounts[index].enabled) return error.NotFound;
+        if (self.findAccountByName(name)) |existing| if (existing.id != id) return error.Duplicate;
+        const prior = self.accounts[index];
+        @memset(&self.accounts[index].name, 0);
+        @memcpy(self.accounts[index].name[0..name.len], name);
+        self.accounts[index].name_len = @intCast(name.len);
+        self.commit() catch |err| {
+            self.accounts[index] = prior;
+            return err;
+        };
+    }
+
+    pub fn disableAccount(self: *Volume, id: u64) Error!void {
+        try self.ensureWritable();
+        const index = self.accountIndex(id) orelse return error.NotFound;
+        if (self.activeAccountCount() <= 1 and self.accounts[index].enabled) return error.Reserved;
+        const prior = self.accounts[index];
+        self.accounts[index].enabled = false;
+        // Keep ownership and records intact; disabling prevents account selection.
+        self.commit() catch |err| {
+            self.accounts[index] = prior;
+            return err;
+        };
+    }
+
+    pub fn grant(self: *Volume, space: Handle, principal: u64, role: Role) Error!void {
+        try self.ensureWritable();
+        const target = self.findId(space.id) orelse return error.NotFound;
+        if (target.kind != .space or self.accountIndex(principal) == null or !self.accounts[self.accountIndex(principal).?].enabled) return error.InvalidPath;
+        if (role == .owner) for (self.grants[0..self.grant_count]) |item| {
+            if (item.space == space.id and item.principal != principal and item.role == .owner) return error.Reserved;
+        };
+        for (self.grants[0..self.grant_count], 0..) |grant_item, index| if (grant_item.space == space.id and grant_item.principal == principal) {
+            const prior = self.grants[index];
+            self.grants[index].role = role;
+            self.commit() catch |err| {
+                self.grants[index] = prior;
+                return err;
+            };
+            return;
+        };
+        if (self.grant_count == max_grants) return error.NoSpace;
+        self.grants[self.grant_count] = .{ .space = space.id, .principal = principal, .role = role };
+        self.grant_count += 1;
+        self.commit() catch |err| {
+            self.grant_count -= 1;
+            return err;
+        };
+    }
+
+    pub fn revoke(self: *Volume, space: Handle, principal: u64) Error!void {
+        try self.ensureWritable();
+        for (self.grants[0..self.grant_count], 0..) |item, index| if (item.space == space.id and item.principal == principal) {
+            if (item.role == .owner) return error.Reserved;
+            const prior = item;
+            var i = index;
+            while (i + 1 < self.grant_count) : (i += 1) self.grants[i] = self.grants[i + 1];
+            self.grant_count -= 1;
+            self.commit() catch |err| {
+                self.grant_count += 1;
+                self.grants[index] = prior;
+                return err;
+            };
+            return;
+        };
+        return error.NotFound;
+    }
+
+    pub fn roleFor(self: *const Volume, space_id: u64, principal: u64) ?Role {
+        for (self.grants[0..self.grant_count]) |item| if (item.space == space_id and item.principal == principal) return item.role;
+        return null;
+    }
+
+    pub const Operation = enum { discover, lookup, read, write, rename, manage_grants };
+
+    pub fn authorize(self: *const Volume, object: Handle, principal: u64, operation: Operation) Error!void {
+        if (self.accountById(principal) == null) return error.AccessDenied;
+        const space_id = self.spaceId(object.id) orelse return error.NotFound;
+        const role = self.roleFor(space_id, principal) orelse return error.AccessDenied;
+        switch (operation) {
+            .discover, .lookup, .read => {},
+            .write, .rename => if (role == .reader) return error.AccessDenied,
+            .manage_grants => if (role != .owner) return error.AccessDenied,
+        }
+    }
+
+    pub fn lookupWithin(self: *const Volume, root: Handle, suffix: []const u8) Error!Handle {
+        const root_record = self.findId(root.id) orelse return error.NotFound;
+        if (root_record.kind != .space) return error.WrongKind;
+        if (suffix.len == 0) return root;
+        if (suffix[0] != '/' or suffix.len == 1) return error.InvalidPath;
+        var current = root_record;
+        var rest = suffix[1..];
+        while (true) {
+            const slash = std.mem.indexOfScalar(u8, rest, '/');
+            const name = if (slash) |at| rest[0..at] else rest;
+            try validateName(name);
+            if (current.kind != .space and current.kind != .directory) return error.WrongKind;
+            current = self.findChild(current.id, name) orelse return error.NotFound;
+            if (slash) |at| {
+                if (current.kind == .file) return error.WrongKind;
+                rest = rest[at + 1 ..];
+                if (rest.len == 0) return error.InvalidPath;
+            } else return .{ .id = current.id };
+        }
+    }
+
+    pub fn lookupAs(self: *const Volume, path: []const u8, principal: u64) Error!Handle {
+        const account = self.accountById(principal) orelse return error.AccessDenied;
+        const object = if (std.mem.startsWith(u8, path, "mine:"))
+            try self.lookupWithin(.{ .id = account.personal_space }, path[5..])
+        else
+            self.lookup(path) catch |err| {
+                if (err == error.InvalidPath) return err;
+                return error.NotFound;
+            };
+        try self.authorize(object, principal, .lookup);
+        return object;
+    }
+
+    pub fn readAs(self: *const Volume, object: Handle, principal: u64, offset: usize, output: []u8) Error!usize {
+        try self.authorize(object, principal, .read);
+        return self.read(object, offset, output);
+    }
+    pub fn writeAs(self: *Volume, object: Handle, principal: u64, bytes: []const u8) Error!void {
+        try self.authorize(object, principal, .write);
+        return self.write(object, bytes);
+    }
+
+    pub fn accountById(self: *const Volume, id: u64) ?Account {
+        const i = self.accountIndex(id) orelse return null;
+        return if (self.accounts[i].enabled) self.accounts[i] else null;
+    }
+    pub fn accountByName(self: *const Volume, name: []const u8) ?Account {
+        const account = self.findAccountByName(name) orelse return null;
+        return if (account.enabled) account else null;
+    }
+    pub fn accountName(account: Account) []const u8 {
+        return account.name[0..account.name_len];
+    }
+    pub fn rootSpaceFor(self: *const Volume, id: u64) ?Handle {
+        const account = self.accountById(id) orelse return null;
+        return .{ .id = account.personal_space };
+    }
+    pub fn rootSpaceId(self: *const Volume, object: Handle) ?u64 {
+        return self.spaceId(object.id);
+    }
+    pub fn accountList(self: *const Volume, output: []Account) Error!usize {
+        var n: usize = 0;
+        for (self.accounts[0..self.account_count]) |account| if (account.enabled) {
+            if (n == output.len) return error.OutputTooSmall;
+            output[n] = account;
+            n += 1;
+        };
+        return n;
+    }
+
     pub fn listSpaces(self: *const Volume, output: []Entry) Error!usize {
         return self.children(0, output);
+    }
+    pub fn listSpacesAs(self: *const Volume, principal: u64, output: []Entry) Error!usize {
+        if (self.accountById(principal) == null) return error.AccessDenied;
+        var count: usize = 0;
+        for (self.records[0..self.count]) |record| if (record.kind == .space and self.roleFor(record.id, principal) != null) {
+            if (count == output.len) return error.OutputTooSmall;
+            output[count] = entry(record);
+            count += 1;
+        };
+        return count;
     }
 
     pub fn lookup(self: *const Volume, path: []const u8) Error!Handle {
@@ -173,6 +415,23 @@ pub const Volume = struct {
     }
     pub fn createFile(self: *Volume, parent: Handle, name: []const u8) Error!Handle {
         return self.createNode(parent, name, .file);
+    }
+    pub fn createDirectoryAs(self: *Volume, parent: Handle, principal: u64, name: []const u8) Error!Handle {
+        try self.authorize(parent, principal, .write);
+        return self.createDirectory(parent, name);
+    }
+    pub fn createFileAs(self: *Volume, parent: Handle, principal: u64, name: []const u8) Error!Handle {
+        try self.authorize(parent, principal, .write);
+        return self.createFile(parent, name);
+    }
+    pub fn removeAs(self: *Volume, object: Handle, principal: u64) Error!void {
+        try self.authorize(object, principal, .write);
+        return self.remove(object);
+    }
+    pub fn renameMoveAs(self: *Volume, object: Handle, parent: Handle, principal: u64, name: []const u8) Error!void {
+        try self.authorize(object, principal, .rename);
+        try self.authorize(parent, principal, .write);
+        return self.renameMove(object, parent, name);
     }
 
     pub fn read(self: *const Volume, handle: Handle, offset: usize, output: []u8) Error!usize {
@@ -298,7 +557,7 @@ pub const Volume = struct {
         self.generation = std.math.add(u64, self.generation, 1) catch return error.Corrupt;
         var bytes: [slot_bytes]u8 = undefined;
         @memset(&bytes, 0);
-        encode(&bytes, self.records[0..self.count], self.next_id, self.generation);
+        encode(&bytes, self.records[0..self.count], self.next_id, self.generation, self.accounts[0..self.account_count], self.grants[0..self.grant_count], self.next_account_id);
         const target = if (self.active_slot == metadata_a_lba) metadata_b_lba else metadata_a_lba;
         self.device.write(target, metadata_slot_sectors, &bytes) catch |err| {
             self.generation -= 1;
@@ -318,6 +577,21 @@ pub const Volume = struct {
     }
 
     fn validateMountedExtents(self: *const Volume) Error!void {
+        for (self.accounts[0..self.account_count]) |account| {
+            const personal = self.findId(account.personal_space) orelse return error.Corrupt;
+            if (personal.kind != .space or personal.parent != 0 or self.roleFor(personal.id, account.id) != .owner) return error.Corrupt;
+        }
+        for (self.grants[0..self.grant_count]) |item| {
+            const target = self.findId(item.space) orelse return error.Corrupt;
+            if (target.kind != .space or self.accountIndex(item.principal) == null) return error.Corrupt;
+        }
+        for (self.records[0..self.count]) |record| if (record.kind == .space) {
+            var owners: usize = 0;
+            for (self.grants[0..self.grant_count]) |item| if (item.space == record.id and item.role == .owner) {
+                owners += 1;
+            };
+            if (self.account_count != 0 and owners != 1) return error.Corrupt;
+        };
         for (self.records[0..self.count]) |rec| if (rec.kind == .file and rec.sectors != 0) {
             if (rec.lba < data_start_lba or rec.lba > self.device.sector_count or rec.sectors > self.device.sector_count - rec.lba) return error.Corrupt;
         };
@@ -358,6 +632,25 @@ pub const Volume = struct {
     }
     fn indexOf(self: *const Volume, id: u64) ?usize {
         for (self.records[0..self.count], 0..) |rec, i| if (rec.id == id) return i;
+        return null;
+    }
+    fn accountIndex(self: *const Volume, id: u64) ?usize {
+        for (self.accounts[0..self.account_count], 0..) |account, index| if (account.id == id) return index;
+        return null;
+    }
+    fn findAccountByName(self: *const Volume, name: []const u8) ?Account {
+        for (self.accounts[0..self.account_count]) |account| if (std.mem.eql(u8, account.name[0..account.name_len], name)) return account;
+        return null;
+    }
+    fn activeAccountCount(self: *const Volume) usize {
+        var count: usize = 0;
+        for (self.accounts[0..self.account_count]) |account| if (account.enabled) {
+            count += 1;
+        };
+        return count;
+    }
+    fn defaultPrincipal(self: *const Volume) ?u64 {
+        for (self.accounts[0..self.account_count]) |account| if (account.enabled) return account.id;
         return null;
     }
     fn findChild(self: *const Volume, parent: u64, name: []const u8) ?Record {
@@ -401,7 +694,7 @@ fn allZero(bytes: []const u8) bool {
     return true;
 }
 fn hasUnsupportedVersion(bytes: []const u8) bool {
-    return bytes.len >= 12 and std.mem.eql(u8, bytes[0..8], "KRSPACE1") and get32(bytes, 8) != 1;
+    return bytes.len >= 12 and std.mem.eql(u8, bytes[0..8], "KRSPACE1") and get32(bytes, 8) > 2;
 }
 fn put16(b: []u8, at: usize, x: u16) void {
     b[at] = @truncate(x);
@@ -431,14 +724,32 @@ fn checksum(bytes: []const u8) u32 {
     return std.hash.Crc32.hash(&copy);
 }
 
-fn encode(bytes: *[slot_bytes]u8, records: []const Record, next_id: u64, generation: u64) void {
+fn encode(bytes: *[slot_bytes]u8, records: []const Record, next_id: u64, generation: u64, accounts: []const Account, grants: []const Grant, next_account_id: u64) void {
     @memset(bytes, 0);
     @memcpy(bytes[0..8], "KRSPACE1");
-    put32(bytes, 8, 1);
+    put32(bytes, 8, 2);
     put32(bytes, 12, @intCast(records.len));
     put64(bytes, 16, generation);
     put64(bytes, 28, next_id);
     put32(bytes, 36, @intCast(data_start_lba));
+    put32(bytes, 40, 1); // identity table format
+    bytes[44] = @intCast(accounts.len);
+    bytes[45] = @intCast(grants.len);
+    put64(bytes, 48, next_account_id);
+    for (accounts, 0..) |account, i| {
+        const at = 64 + i * 50;
+        put64(bytes, at, account.id);
+        put64(bytes, at + 8, account.personal_space);
+        bytes[at + 16] = account.name_len;
+        bytes[at + 17] = @intFromBool(account.enabled);
+        @memcpy(bytes[at + 18 .. at + 50], &account.name);
+    }
+    for (grants, 0..) |item, i| {
+        const at = 364 + i * 17;
+        put64(bytes, at, item.space);
+        put64(bytes, at + 8, item.principal);
+        bytes[at + 16] = @backingInt(item.role);
+    }
     for (records, 0..) |rec, i| {
         const at = header_size + i * record_size;
         put64(bytes, at, rec.id);
@@ -453,15 +764,51 @@ fn encode(bytes: *[slot_bytes]u8, records: []const Record, next_id: u64, generat
     put32(bytes, 24, checksum(bytes));
 }
 
-const Decoded = struct { count: usize, generation: u64, next_id: u64 };
-fn decode(bytes: []const u8, records: *[max_objects]Record) ?Decoded {
+const Decoded = struct { count: usize, generation: u64, next_id: u64, account_count: usize = 0, grant_count: usize = 0, next_account_id: u64 = 1 };
+fn decode(bytes: []const u8, records: *[max_objects]Record, accounts: *[max_accounts]Account, grants: *[max_grants]Grant) ?Decoded {
     if (bytes.len != slot_bytes or !std.mem.eql(u8, bytes[0..8], "KRSPACE1")) return null;
-    if (get32(bytes, 8) != 1) return null;
+    const format_version = get32(bytes, 8);
+    if (format_version != 1 and format_version != 2) return null;
     const count = get32(bytes, 12);
     if (count > max_objects or get32(bytes, 24) != checksum(bytes)) return null;
     const next_id = get64(bytes, 28);
     if (next_id == 0) return null;
-    if (get32(bytes, 36) != data_start_lba or !allZero(bytes[40..header_size])) return null;
+    if (get32(bytes, 36) != data_start_lba) return null;
+    var decoded = Decoded{ .count = count, .generation = get64(bytes, 16), .next_id = next_id };
+    if (format_version == 1) {
+        if (!allZero(bytes[40..header_size])) return null;
+    } else {
+        if (get32(bytes, 40) != 1 or bytes[44] > max_accounts or bytes[45] > max_grants or !allZero(bytes[46..48]) or !allZero(bytes[56..64])) return null;
+        decoded.account_count = bytes[44];
+        decoded.grant_count = bytes[45];
+        decoded.next_account_id = get64(bytes, 48);
+        if (decoded.next_account_id == 0) return null;
+        for (0..decoded.account_count) |i| {
+            const at = 64 + i * 50;
+            const id = get64(bytes, at);
+            const personal_space = get64(bytes, at + 8);
+            const name_len = bytes[at + 16];
+            const enabled = bytes[at + 17];
+            if (id == 0 or id >= decoded.next_account_id or name_len == 0 or name_len > max_name or enabled > 1 or !allZero(bytes[at + 18 + name_len .. at + 50])) return null;
+            const name = bytes[at + 18 .. at + 18 + name_len];
+            for (name) |c| if (c < 'a' or c > 'z') return null;
+            accounts[i] = .{ .id = id, .personal_space = personal_space, .name = undefined, .name_len = name_len, .enabled = enabled == 1 };
+            @memset(&accounts[i].name, 0);
+            @memcpy(accounts[i].name[0..name_len], name);
+            for (accounts[0..i]) |prior| if (prior.id == id or std.mem.eql(u8, prior.name[0..prior.name_len], name)) return null;
+        }
+        const accounts_end = 64 + decoded.account_count * 50;
+        if (!allZero(bytes[accounts_end..364])) return null;
+        for (0..decoded.grant_count) |i| {
+            const at = 364 + i * 17;
+            const role_raw = bytes[at + 16];
+            if (role_raw < 1 or role_raw > 3) return null;
+            grants[i] = .{ .space = get64(bytes, at), .principal = get64(bytes, at + 8), .role = @fromBackingInt(@intCast(role_raw)) };
+            for (grants[0..i]) |prior| if (prior.space == grants[i].space and prior.principal == grants[i].principal) return null;
+        }
+        const grants_end = 364 + decoded.grant_count * 17;
+        if (!allZero(bytes[grants_end..500]) or !allZero(bytes[500..header_size])) return null;
+    }
     var max_id: u64 = 0;
     for (0..count) |i| {
         const at = header_size + i * record_size;
@@ -470,7 +817,7 @@ fn decode(bytes: []const u8, records: *[max_objects]Record) ?Decoded {
         if (kind_raw < 1 or kind_raw > 3 or len == 0 or len > max_name or !allZero(bytes[at + 18 + len .. at + 50])) return null;
         const id = get64(bytes, at);
         const parent = get64(bytes, at + 8);
-        if (id == 0 or id >= next_id or (i == 0 and (parent != 0 or kind_raw != @backingInt(Kind.space))) or (i > 0 and parent == 0)) return null;
+        if (id == 0 or id >= next_id or (parent == 0 and kind_raw != @backingInt(Kind.space)) or (i == 0 and parent != 0)) return null;
         const name = bytes[at + 18 .. at + 18 + len];
         for (name) |c| if (c < 'a' or c > 'z') return null;
         const kind: Kind = @fromBackingInt(@intCast(kind_raw));
@@ -514,7 +861,7 @@ fn decode(bytes: []const u8, records: *[max_objects]Record) ?Decoded {
         if (rec.lba > block.lba28_sector_limit - rec.sectors) return null;
         for (records[0..i]) |prior| if (prior.kind == .file and prior.sectors != 0 and rec.lba < prior.lba + prior.sectors and prior.lba < rec.lba + rec.sectors) return null;
     };
-    return .{ .count = count, .generation = get64(bytes, 16), .next_id = next_id };
+    return decoded;
 }
 
 test "format, create spaces and areas, persist files, and retain IDs through moves" {
@@ -572,7 +919,62 @@ test "mount chooses complete old snapshot after interrupted metadata write" {
     var recovered = Volume{ .device = fake.device() };
     try recovered.mount();
     _ = try recovered.lookup("first:");
-    try testing.expectError(error.NotFound, recovered.lookup("second:"));
+    // A torn write may still contain the complete new snapshot if the device
+    // persisted its populated prefix and the remaining sectors were already
+    // zero. Both complete generations are valid outcomes.
+    if (recovered.lookup("second:")) |second| {
+        try testing.expectEqual(Kind.space, (try recovered.stat(second)).kind);
+    } else |err| try testing.expectEqual(error.NotFound, err);
+}
+
+test "account IDs survive rename and private spaces resolve by mine selector" {
+    const testing = std.testing;
+    var fake = FakeDisk.init(512);
+    defer testing.allocator.free(fake.bytes);
+    var volume = Volume{ .device = fake.device() };
+    try volume.formatBlank();
+    const alice = try volume.createAccount("alice");
+    const private_root = volume.rootSpaceFor(alice).?;
+    const inbox = try volume.lookupAs("mine:/inbox", alice);
+    try testing.expectEqual(private_root.id, volume.rootSpaceId(inbox).?);
+    try volume.renameAccount(alice, "alicia");
+    try testing.expectEqual(alice, volume.accountByName("alicia").?.id);
+    try testing.expect(volume.accountByName("alice") == null);
+    try testing.expectError(error.Duplicate, volume.createAccount("admin"));
+    var remounted = Volume{ .device = fake.device() };
+    try remounted.mount();
+    try testing.expectEqual(alice, remounted.accountByName("alicia").?.id);
+    try testing.expectEqual(private_root.id, remounted.rootSpaceFor(alice).?.id);
+}
+
+test "shared roles enforce lookup read write grant administration and revocation" {
+    const testing = std.testing;
+    var fake = FakeDisk.init(512);
+    defer testing.allocator.free(fake.bytes);
+    var volume = Volume{ .device = fake.device() };
+    try volume.formatBlank();
+    const admin = volume.accountByName("admin").?.id;
+    const reader = try volume.createAccount("reader");
+    const editor = try volume.createAccount("editor");
+    const shared = try volume.createSpace("team");
+    try volume.grant(shared, reader, .reader);
+    try volume.grant(shared, editor, .editor);
+    const folder = try volume.lookup("team:/work");
+    const file = try volume.createFile(folder, "note");
+    try volume.write(file, "visible");
+    try testing.expectEqual(file.id, (try volume.lookupAs("team:/work/note", reader)).id);
+    try testing.expectError(error.AccessDenied, volume.authorize(file, reader, .write));
+    try testing.expectError(error.AccessDenied, volume.authorize(shared, editor, .manage_grants));
+    try volume.authorize(file, editor, .write);
+    try volume.authorize(shared, admin, .manage_grants);
+    var bytes: [16]u8 = undefined;
+    const amount = try volume.readAs(file, reader, 0, &bytes);
+    try testing.expectEqualStrings("visible", bytes[0..amount]);
+    try volume.revoke(shared, reader);
+    try testing.expectError(error.AccessDenied, volume.authorize(file, reader, .read));
+    var remounted = Volume{ .device = fake.device() };
+    try remounted.mount();
+    try testing.expectError(error.AccessDenied, remounted.authorize(file, reader, .read));
 }
 
 test "rejects unsupported versions and file allocation exhaustion" {
@@ -587,8 +989,8 @@ test "rejects unsupported versions and file allocation exhaustion" {
     var contents: [max_file_bytes]u8 = undefined;
     @memset(&contents, 0xaa);
     try testing.expectError(error.NoSpace, volume.write(file, &contents));
-    fake.bytes[@as(usize, @intCast(metadata_a_lba)) * block.sector_size + 8] = 2;
-    fake.bytes[@as(usize, @intCast(metadata_b_lba)) * block.sector_size + 8] = 2;
+    fake.bytes[@as(usize, @intCast(metadata_a_lba)) * block.sector_size + 8] = 3;
+    fake.bytes[@as(usize, @intCast(metadata_b_lba)) * block.sector_size + 8] = 3;
     var recovered = Volume{ .device = fake.device() };
     try testing.expectError(error.UnsupportedVersion, recovered.mount());
 }

@@ -61,6 +61,7 @@ var data_controller = ata_pio.Controller{};
 var data_device: @import("block_device.zig").Device = .{};
 var data_volume: writable_volume_mod.Volume = undefined;
 var data_volume_mounted = false;
+var active_principal: u64 = 1;
 var packaged_program: [12 + 4096]u8 = undefined;
 var shell_writer_context: u8 = 0;
 var keyboard_decoder = input.Decoder{};
@@ -177,7 +178,10 @@ fn shutdownQemu() noreturn {
 }
 
 fn inb(port: u16) u8 {
-    return asm volatile ("inb %dx, %al" : [value] "={al}" (-> u8), : [port] "{dx}" (port));
+    return asm volatile ("inb %dx, %al"
+        : [value] "={al}" (-> u8),
+        : [port] "{dx}" (port),
+    );
 }
 
 // Consume at most one controller byte per poll; ignore auxiliary and corrupt bytes.
@@ -192,7 +196,10 @@ fn pollKeyboard(ctx: *anyopaque) ?input.Event {
 
 fn exitRequested() bool {
     const event = inputs.poll() orelse return false;
-    return switch (event) { .byte => |byte| byte == 'q' or byte == 'Q', else => false };
+    return switch (event) {
+        .byte => |byte| byte == 'q' or byte == 'Q',
+        else => false,
+    };
 }
 
 /// PIT channel 2 one-shot (~20 ms); COM1 remains polled during the wait.
@@ -215,8 +222,12 @@ fn waitFrame() bool {
 }
 
 fn readTsc() u64 {
-    const high: u32 = asm volatile ("rdtsc" : [value] "={edx}" (-> u32));
-    const low: u32 = asm volatile ("rdtsc" : [value] "={eax}" (-> u32));
+    const high: u32 = asm volatile ("rdtsc"
+        : [value] "={edx}" (-> u32),
+    );
+    const low: u32 = asm volatile ("rdtsc"
+        : [value] "={eax}" (-> u32),
+    );
     return (@as(u64, high) << 32) | low;
 }
 
@@ -461,6 +472,7 @@ fn runShell(memory: shell_commands.MemorySummary) noreturn {
         .browser = &browser,
         .writable = if (data_device.backend != null) &data_volume else null,
         .writable_mounted = data_volume_mounted,
+        .active_principal = &active_principal,
     };
     var line: [console.line_capacity]u8 = undefined;
     while (true) {
@@ -474,7 +486,11 @@ fn runShell(memory: shell_commands.MemorySummary) noreturn {
             console.write("Command line too long\r\n");
             continue;
         };
-        if (action == .kratos) { runKratos(); continue; }
+        interrupts.setDataVolume(if (data_volume_mounted) &data_volume else null, active_principal);
+        if (action == .kratos) {
+            runKratos();
+            continue;
+        }
         if (action == .hello) {
             if (launchPackagedHello()) {
                 const digits = "0123456789abcdef";
@@ -519,6 +535,7 @@ export fn kratos_kernel_main() noreturn {
     runBlockDeviceFixture();
     runWritableVolumeFixture();
     interrupts.setSystemVolume(&system_volume);
+    interrupts.setDataVolume(if (data_volume_mounted) &data_volume else null, active_principal);
     if (user_mode.run(.invalid_instruction) and user_mode.run(.kernel_read) and user_mode.run(.code_write) and user_mode.run(.data_execute)) {
         console.write("KratOS: ring3 boundary self-test passed\r\n");
     } else {

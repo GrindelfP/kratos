@@ -4,21 +4,137 @@ const volume_mod = @import("writable_volume.zig");
 pub const Writer = struct { context: *anyopaque, write: *const fn (*anyopaque, []const u8) void };
 
 pub fn execute(volume: *volume_mod.Volume, command: []const u8, args: []const u8, writer: Writer) void {
-    if (std.mem.eql(u8, command, "space-format")) {
+    var principal: u64 = 1;
+    executeAs(volume, &principal, command, args, writer);
+}
+
+pub fn executeAs(volume: *volume_mod.Volume, principal: *u64, command: []const u8, args: []const u8, writer: Writer) void {
+    if (std.mem.eql(u8, command, "account-use")) {
+        const account = volume.accountByName(args) orelse {
+            writer.write(writer.context, "Account not found\r\n");
+            return;
+        };
+        principal.* = account.id;
+        writer.write(writer.context, "Active recovery principal: ");
+        writer.write(writer.context, args);
+        writer.write(writer.context, "\r\n");
+    } else if (std.mem.eql(u8, command, "account-create")) {
+        const id = volume.createAccount(args) catch |err| {
+            report(writer, err);
+            return;
+        };
+        writer.write(writer.context, "Created account id=");
+        writeDecimal(writer, id);
+        writer.write(writer.context, "\r\n");
+    } else if (std.mem.eql(u8, command, "account-list")) {
+        var accounts: [volume_mod.max_accounts]volume_mod.Account = undefined;
+        const count = volume.accountList(&accounts) catch |err| {
+            report(writer, err);
+            return;
+        };
+        for (accounts[0..count]) |account| {
+            writeDecimal(writer, account.id);
+            writer.write(writer.context, " ");
+            writer.write(writer.context, account.name[0..account.name_len]);
+            if (account.id == principal.*) writer.write(writer.context, " (active)");
+            writer.write(writer.context, "\r\n");
+        }
+    } else if (std.mem.eql(u8, command, "account-rename")) {
+        const split = std.mem.indexOfScalar(u8, args, ' ') orelse {
+            usage(writer, command);
+            return;
+        };
+        const id = parseDecimal(args[0..split]) orelse {
+            usage(writer, command);
+            return;
+        };
+        volume.renameAccount(id, args[split + 1 ..]) catch |err| {
+            report(writer, err);
+            return;
+        };
+        writer.write(writer.context, "Account renamed; stable id preserved\r\n");
+    } else if (std.mem.eql(u8, command, "account-disable")) {
+        const id = parseDecimal(args) orelse {
+            usage(writer, command);
+            return;
+        };
+        volume.disableAccount(id) catch |err| {
+            report(writer, err);
+            return;
+        };
+        writer.write(writer.context, "Account disabled; ownership records retained\r\n");
+    } else if (std.mem.eql(u8, command, "grant")) {
+        const first = std.mem.indexOfScalar(u8, args, ' ') orelse {
+            usage(writer, command);
+            return;
+        };
+        const second_rel = std.mem.indexOfScalar(u8, args[first + 1 ..], ' ') orelse {
+            usage(writer, command);
+            return;
+        };
+        const second = first + 1 + second_rel;
+        const space = volume.lookupAs(args[0..first], principal.*) catch |err| {
+            report(writer, err);
+            return;
+        };
+        volume.authorize(space, principal.*, .manage_grants) catch |err| {
+            report(writer, err);
+            return;
+        };
+        const id = parseDecimal(args[first + 1 .. second]) orelse {
+            usage(writer, command);
+            return;
+        };
+        const role: volume_mod.Role = if (std.mem.eql(u8, args[second + 1 ..], "reader")) .reader else if (std.mem.eql(u8, args[second + 1 ..], "editor")) .editor else if (std.mem.eql(u8, args[second + 1 ..], "owner")) .owner else {
+            usage(writer, command);
+            return;
+        };
+        volume.grant(space, id, role) catch |err| {
+            report(writer, err);
+            return;
+        };
+        writer.write(writer.context, "Grant saved\r\n");
+    } else if (std.mem.eql(u8, command, "revoke")) {
+        const split = std.mem.indexOfScalar(u8, args, ' ') orelse {
+            usage(writer, command);
+            return;
+        };
+        const space = volume.lookupAs(args[0..split], principal.*) catch |err| {
+            report(writer, err);
+            return;
+        };
+        volume.authorize(space, principal.*, .manage_grants) catch |err| {
+            report(writer, err);
+            return;
+        };
+        const id = parseDecimal(args[split + 1 ..]) orelse {
+            usage(writer, command);
+            return;
+        };
+        volume.revoke(space, id) catch |err| {
+            report(writer, err);
+            return;
+        };
+        writer.write(writer.context, "Grant revoked\r\n");
+    } else if (std.mem.eql(u8, command, "space-create")) {
+        if (volume.accountById(principal.*) == null) {
+            report(writer, error.AccessDenied);
+            return;
+        }
+        _ = volume.createSpaceOwned(args, principal.*) catch |err| {
+            report(writer, err);
+            return;
+        };
+        writer.write(writer.context, "Space created\r\n");
+    } else if (std.mem.eql(u8, command, "space-format")) {
         volume.formatBlank() catch |err| {
             report(writer, err);
             return;
         };
         writer.write(writer.context, "Blank data volume formatted\r\n");
-    } else if (std.mem.eql(u8, command, "space-create")) {
-        _ = volume.createSpace(args) catch |err| {
-            report(writer, err);
-            return;
-        };
-        writer.write(writer.context, "Space created\r\n");
-    } else if (std.mem.eql(u8, command, "space-list")) {
+    } else if (std.mem.eql(u8, command, "space-create")) {} else if (std.mem.eql(u8, command, "space-list")) {
         var entries: [volume_mod.max_objects]volume_mod.Entry = undefined;
-        const count = volume.listSpaces(&entries) catch |err| {
+        const count = volume.listSpacesAs(principal.*, &entries) catch |err| {
             report(writer, err);
             return;
         };
@@ -35,14 +151,14 @@ pub fn execute(volume: *volume_mod.Volume, command: []const u8, args: []const u8
             usage(writer, command);
             return;
         };
-        const parent = volume.lookup(parts.parent) catch |err| {
+        const parent = volume.lookupAs(parts.parent, principal.*) catch |err| {
             report(writer, err);
             return;
         };
-        if (std.mem.eql(u8, command, "mkdir")) _ = volume.createDirectory(parent, parts.name) catch |err| {
+        if (std.mem.eql(u8, command, "mkdir")) _ = volume.createDirectoryAs(parent, principal.*, parts.name) catch |err| {
             report(writer, err);
             return;
-        } else _ = volume.createFile(parent, parts.name) catch |err| {
+        } else _ = volume.createFileAs(parent, principal.*, parts.name) catch |err| {
             report(writer, err);
             return;
         };
@@ -52,22 +168,22 @@ pub fn execute(volume: *volume_mod.Volume, command: []const u8, args: []const u8
             usage(writer, command);
             return;
         };
-        const handle = volume.lookup(args[0..split]) catch |err| {
+        const handle = volume.lookupAs(args[0..split], principal.*) catch |err| {
             report(writer, err);
             return;
         };
-        volume.write(handle, args[split + 1 ..]) catch |err| {
+        volume.writeAs(handle, principal.*, args[split + 1 ..]) catch |err| {
             report(writer, err);
             return;
         };
         writer.write(writer.context, "Written\r\n");
     } else if (std.mem.eql(u8, command, "read")) {
-        const handle = volume.lookup(args) catch |err| {
+        const handle = volume.lookupAs(args, principal.*) catch |err| {
             report(writer, err);
             return;
         };
         var bytes: [96]u8 = undefined;
-        const amount = volume.read(handle, 0, &bytes) catch |err| {
+        const amount = volume.readAs(handle, principal.*, 0, &bytes) catch |err| {
             report(writer, err);
             return;
         };
@@ -78,7 +194,7 @@ pub fn execute(volume: *volume_mod.Volume, command: []const u8, args: []const u8
             usage(writer, command);
             return;
         };
-        const source = volume.lookup(args[0..split]) catch |err| {
+        const source = volume.lookupAs(args[0..split], principal.*) catch |err| {
             report(writer, err);
             return;
         };
@@ -86,21 +202,21 @@ pub fn execute(volume: *volume_mod.Volume, command: []const u8, args: []const u8
             usage(writer, command);
             return;
         };
-        const parent = volume.lookup(parts.parent) catch |err| {
+        const parent = volume.lookupAs(parts.parent, principal.*) catch |err| {
             report(writer, err);
             return;
         };
-        volume.renameMove(source, parent, parts.name) catch |err| {
+        volume.renameMoveAs(source, parent, principal.*, parts.name) catch |err| {
             report(writer, err);
             return;
         };
         writer.write(writer.context, "Moved\r\n");
     } else if (std.mem.eql(u8, command, "rm")) {
-        const handle = volume.lookup(args) catch |err| {
+        const handle = volume.lookupAs(args, principal.*) catch |err| {
             report(writer, err);
             return;
         };
-        volume.remove(handle) catch |err| {
+        volume.removeAs(handle, principal.*) catch |err| {
             report(writer, err);
             return;
         };
@@ -119,8 +235,31 @@ fn usage(writer: Writer, command: []const u8) void {
     writer.write(writer.context, command);
     writer.write(writer.context, " <path>\r\n");
 }
+fn writeDecimal(writer: Writer, value: u64) void {
+    var bytes: [20]u8 = undefined;
+    var n = value;
+    var index = bytes.len;
+    while (true) {
+        index -= 1;
+        bytes[index] = @intCast(n % 10 + '0');
+        n /= 10;
+        if (n == 0) break;
+    }
+    writer.write(writer.context, bytes[index..]);
+}
+fn parseDecimal(text: []const u8) ?u64 {
+    if (text.len == 0) return null;
+    var value: u64 = 0;
+    for (text) |byte| {
+        if (byte < '0' or byte > '9') return null;
+        value = std.math.mul(u64, value, 10) catch return null;
+        value = std.math.add(u64, value, byte - '0') catch return null;
+    }
+    return value;
+}
 fn report(writer: Writer, err: volume_mod.Error) void {
     writer.write(writer.context, switch (err) {
+        error.AccessDenied => "Access denied for active principal\r\n",
         error.Unformatted => "Data volume unformatted; use space-format on a blank image\r\n",
         error.Corrupt => "Data volume corrupt or not blank; no data changed\r\n",
         error.UnsupportedVersion => "Unsupported data volume version\r\n",

@@ -40,7 +40,7 @@ expect {
     timeout { puts stderr "prompt was damaged after the long echo"; exit 1 }
 }
 expect {
-    "help about echo mem clear kratos halt shutdown hello spaces ls pwd cd cat" {}
+    "help about echo mem clear kratos halt shutdown hello spaces ls pwd cd cat space-format space-create space-list mkdir touch write read mv rm account-list account-create account-use account-rename account-disable grant revoke" {}
     timeout { puts stderr "command after pasted echo did not execute cleanly"; exit 1 }
 }
 expect {

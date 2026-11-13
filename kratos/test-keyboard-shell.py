@@ -94,7 +94,7 @@ try:
     wait_for("kratos> ")
     monitor_command("screendump " + base + "-welcome.ppm")
     type_keys(["h", "e", "l", "x", "backspace", "p", "ret"])
-    wait_for("help about echo mem clear kratos halt shutdown hello spaces ls pwd cd cat")
+    wait_for("help about echo mem clear kratos halt shutdown hello spaces ls pwd cd cat space-format space-create space-list mkdir touch write read mv rm account-list account-create account-use account-rename account-disable grant revoke")
     type_text("cd system:/packages/hello\n")
     wait_for("kratos> cd system:/packages/hello")
     type_text("pwd\n")
@@ -156,13 +156,13 @@ try:
     time.sleep(0.5)
     monitor_command("screendump " + base + "-return.ppm")
     type_keys(["h", "e", "l", "p", "ret"])
-    wait_for("help about echo mem clear kratos halt shutdown hello spaces ls pwd cd cat")
+    wait_for("help about echo mem clear kratos halt shutdown hello spaces ls pwd cd cat space-format space-create space-list mkdir touch write read mv rm account-list account-create account-use account-rename account-disable grant revoke")
     type_keys(["s", "h", "u", "t", "d", "o", "w", "n", "ret"])
     wait_for("KratOS shutting down")
     status = process.wait(timeout=5)
     assert status == 33, f"unexpected QEMU shutdown status: {status}"
     data = read_log()
-    assert data.count("help about echo mem clear kratos halt shutdown hello spaces ls pwd cd cat") == 3, data
+    assert data.count("help about echo mem clear kratos halt shutdown hello spaces ls pwd cd cat space-format space-create space-list mkdir touch write read mv rm account-list account-create account-use account-rename account-disable grant revoke") == 3, data
     print(data)
     print("QEMU exited via guest shutdown with status 33.")
     print("Screenshots and serial output:", os.path.dirname(base))
