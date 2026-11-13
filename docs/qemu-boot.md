@@ -65,7 +65,8 @@ enters ring 3. An exception gate switches to RSP0; the dispatcher checks both
 the active-test flag and the saved CS privilege bits before recovering #UD or
 #PF. Recovery restores the original CR3, CR4, and saved kernel ABI stack, then
 returns to the caller. All kernel-origin exceptions and other user exceptions
-remain fatal. There is no general syscall or arbitrary-program fault handler.
+remain fatal. The bounded syscall and separately built program paths are described
+below; there is no general arbitrary-program fault handler.
 
 Each run uses a fresh four-level root copied from the Limine root, with the
 user bit cleared on every inherited root entry and entry zero replaced by a
@@ -362,3 +363,65 @@ filesystem, process isolation guarantee, or termination of a looping program
 is provided. The executable bytes are trusted boot content, not authenticated.
 The `--no-nx` test verifies visible failure and continued shell operation, not
 injection of a malformed image; malformed cases are exercised by host tests.
+
+## User-mode milestone regression
+
+In addition to the prerequisites above, these commands require Python 3,
+`objcopy`, and `expect`. From the repository root, set the actual tool paths;
+the following are the paths used on the Linux verification host:
+
+```sh
+export ZIG="$HOME/.local/share/kratos-tools/zig-x86_64-linux-0.17.0/zig"
+export LIMINE_DIR="$HOME/.local/share/kratos-tools/limine-binary"
+export OUT_DIR=/tmp/opencode/kratos-0021-build
+./kratos/build-qemu.sh --build-only
+python3 kratos/test-user-program.py "$OUT_DIR/kratos.iso"
+python3 kratos/test-user-program.py "$OUT_DIR/kratos.iso" --no-nx
+python3 kratos/test-user-boundary.py "$OUT_DIR/kratos.iso"
+./kratos/test-serial-shell.sh "$OUT_DIR/kratos.iso"
+python3 kratos/test-keyboard-shell.py "$OUT_DIR/kratos.iso"
+for test in kratos/kernel/*.zig; do
+  if grep -q '^test ' "$test"; then "$ZIG" test "$test" || exit 1; fi
+done
+```
+
+Build and test each separately assembled fault/syscall fixture in its own output
+directory (do not substitute a fixture ISO for the normal hello ISO):
+
+```sh
+for scenario in syscalls ud kernel-read code-write data-execute; do
+  KRATOS_TEST_USER="$scenario" OUT_DIR="$OUT_DIR/$scenario" \
+    ./kratos/build-qemu.sh --build-only || exit 1
+  python3 kratos/test-user-program.py "$OUT_DIR/$scenario/kratos.iso" \
+    --scenario "$scenario" || exit 1
+done
+```
+
+To run one case, use the matching `KRATOS_TEST_USER` value and `--scenario`
+value from the loop. The selector is for test builds only; unset it for the
+normal image. Each Python invocation boots QEMU with q35/256 MiB, BIOS,
+headless display, a serial socket, `-no-reboot`, and `isa-debug-exit`. Each
+case runs `hello` twice, checks its result, executes `echo shell-recovered-0`
+and `echo shell-recovered-1` after the respective returns, and verifies shutdown
+status 33. Success prints `QEMU <scenario> launch/relaunch, recovery after each,
+and shutdown passed`; a missing result, timeout, unexpected QEMU exit, or wrong
+shutdown status fails the command. `--no-nx` instead expects visible failure
+on each launch and the same recovery and shutdown checks.
+
+The normal image must print `Hello from a separate user program!` and exit 7.
+The syscall fixture exits 21 only if a kernel-address output request returns -1
+and unknown call 999 returns -3; mismatch exits 99 and fails the test. The
+fault fixtures respectively assert user #UD vector 6/error 0, kernel-memory
+read #PF vector 14/error 5, code-write #PF vector 14/error 7, and NX execution
+#PF vector 14/error 0x15, followed by the shell's failure message. The separate
+boundary test also injects a kernel NMI and requires `fatal x86 exception
+vector=0x0000000000000002`, not user-fault recovery.
+
+On 2026-11-13 all commands above passed on Linux with Zig 0.17.0, Limine
+12.9.6, QEMU 11.1.3 and xorriso 1.5.8; the serial and keyboard regressions
+both verified guest shutdown status 33. The keyboard test used the default ISO
+resolution; no additional resolution or physical hardware was tested in this
+run. xorriso emitted the documented EFI-directory warning; only BIOS was tested.
+These checks verify a bounded single-program milestone, not full process
+isolation, POSIX conformance, or a general security guarantee. A looping user
+program still has no timeout or preemption.

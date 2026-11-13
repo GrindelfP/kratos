@@ -1,6 +1,6 @@
 # Verify the first user-mode milestone in QEMU
 
-**Status:** planned
+**Status:** done — bounded QEMU milestone verified
 
 ## Description
 
@@ -29,3 +29,17 @@ Depends on tickets [0018](0018-user-mode-boundary.md),
 [0019](0019-minimal-user-syscalls.md), and
 [0020](0020-first-user-program.md). It supplies the milestone-level evidence
 that success and failure both preserve the recovery path.
+
+## Implementation and verification
+
+The exact prerequisites, build and individual scenario commands, expected
+results, failure interpretation, and scope are in
+[qemu-boot.md](../qemu-boot.md#user-mode-milestone-regression). On 2026-11-13,
+Linux/QEMU 11.1.3 passed normal and NX-unavailable program runs, all five
+separately built syscall/fault fixtures with two launches and a serial command
+after each, the kernel-origin NMI distinction, all host-test-bearing Zig modules,
+and existing serial, keyboard, halt and shutdown regressions. Both serial and
+keyboard shutdown returned QEMU status 33. BIOS and the default keyboard-test
+resolution were used; UEFI, additional resolutions, and physical hardware were
+not verified in this run. This is not full process isolation, POSIX conformance,
+or a general security guarantee.

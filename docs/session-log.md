@@ -1,5 +1,7 @@
 # Session log
 
+2026-11-13 - 12:05 MSK - Completed ticket 0021: added separately built syscall and fault verification images, per-launch serial shell recovery and relaunch assertions, and documented passing host, QEMU boundary, program, serial, keyboard and shutdown regressions and their limits.
+
 2026-10-31 - 20:19 MSK - Added repository agent guidance, workflow rules, and session log; verified origin remote and pulled latest changes.
 
 2026-10-31 - 20:51 MSK - Researched lightweight UNIX-like OS differentiation and kernel language tradeoffs; added cited research note.
