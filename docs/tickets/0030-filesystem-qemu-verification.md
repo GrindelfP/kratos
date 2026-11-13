@@ -33,3 +33,26 @@ the documented QEMU configuration and publish reproducible evidence.
 Depends on [0022](0022-filesystem-namespace-contract.md) through
 [0029](0029-principals-and-space-grants.md). This ticket is the evidence gate
 for the [filesystem milestone](../roadmap.md#next-milestone-native-space-based-filesystem).
+
+## Verification record — 2026-11-13
+
+Host verification passed on this machine with Zig 0.17.1:
+
+- Ran `zig test` for every `kratos/kernel/*.zig` module containing tests. All
+  suites passed, including namespace, system-image, writable-volume, block
+  device, shell, and user-syscall coverage.
+- `python3 kratos/tools/test-system-image.py` passed (5 tests).
+- Python compile checks for all QEMU test drivers and shell syntax checks for
+  the build, data-image, and serial-test scripts passed.
+- Manually linked the current freestanding kernel with Zig 0.17.1 and Clang.
+
+QEMU acceptance remains unverified. `./kratos/build-qemu.sh --build-only`
+stops with `expected Zig 0.17.0`; no Limine 12.9.6 host executable/release
+files are installed. The existing ignored `build/kratos.iso` is dated
+2026-11-01 and predates this milestone, so it is not valid evidence. Run the
+commands in the QEMU guide's “Native filesystem milestone verification gate”
+after providing the pinned build prerequisites. The current guest fixtures
+cover read-only mount/malformed-image recovery and successful block/writable
+persistence. Writable corruption, forced exhaustion, interrupted-update
+recovery, and the full principal/grant matrix have host tests but no guest
+fixture yet.

@@ -107,9 +107,11 @@ Built-ins are `help`, `about`, `echo <text>`, `mem`, `clear`, `kratos`, `halt`,
 starts at `system:` (the image root); paths can be relative to the current
 directory or absolute, and `.`/`..` are normalized according to the namespace
 grammar. `ls` lists at most 16 entries, while `cat` prints at most the first 96
-bytes of a text file. `spaces` lists only the mounted `system` space until
-principal discovery and grants arrive in ticket 0029. Other spaces are not yet
-available. These commands use the same lowercase ASCII path names as the
+bytes of a text file. `spaces` reports the mounted read-only `system` image.
+`space-list` lists only the writable spaces discoverable by the active recovery
+principal; `mine:` resolves that principal's private space. The account
+selection and grant commands below are privileged recovery-shell test controls,
+not login. These commands use the same lowercase ASCII path names as the
 filesystem contract. Errors return to the shell without changing its current
 directory.
 unknown commands report an error and return to the prompt. Input is limited to
@@ -549,3 +551,65 @@ The first marked boot formats only the blank test image, creates
 `test:/archive/probe`, and writes a persistence marker. The second boot checks
 the remounted contents and shell recovery. Normal images contain no marker and
 never run this test path.
+
+## Native filesystem milestone verification gate
+
+The host suites cover the namespace grammar, malformed system images, bounded
+mount/lookup/read, the versioned writable snapshot format, exhaustion and
+interrupted-update recovery, account identity and grant enforcement, syscall
+handle revocation, and shell command parsing. Run every kernel Zig test and the
+system-image builder suite from the repository root:
+
+```sh
+for test in kratos/kernel/*.zig; do
+  if grep -q '^test ' "$test"; then zig test "$test" || exit 1; fi
+done
+python3 kratos/tools/test-system-image.py
+```
+
+After building with the pinned Zig 0.17.0 and Limine 12.9.6 prerequisites,
+run the normal system mount, package launch and file-read, user-boundary,
+serial, keyboard, ATA persistence, and writable-space reboot fixtures:
+
+```sh
+./kratos/build-qemu.sh --build-only
+python3 kratos/test-system-mount.py build/kratos.iso
+python3 kratos/test-user-program.py build/kratos.iso
+python3 kratos/test-user-boundary.py build/kratos.iso
+./kratos/test-serial-shell.sh build/kratos.iso
+python3 kratos/test-keyboard-shell.py build/kratos.iso
+KRATOS_TEST_BLOCK=1 OUT_DIR=/tmp/kratos-block-iso ./kratos/build-qemu.sh --build-only
+./kratos/create-data-image.sh /tmp/kratos-block-data.img 64M
+ISO=/tmp/kratos-block-iso/kratos.iso KRATOS_DATA_IMAGE=/tmp/kratos-block-data.img \
+  python3 kratos/test-block-device.py
+KRATOS_TEST_SPACE=1 OUT_DIR=/tmp/kratos-space-iso ./kratos/build-qemu.sh --build-only
+./kratos/create-data-image.sh /tmp/kratos-space-data.img 64M
+ISO=/tmp/kratos-space-iso/kratos.iso KRATOS_DATA_IMAGE=/tmp/kratos-space-data.img \
+  python3 kratos/test-writable-volume.py
+```
+
+Build `KRATOS_TEST_SYSTEM_IMAGE=malformed` in a separate `OUT_DIR` and pass
+`--malformed` to `test-system-mount.py` to assert a bounded diagnostic and a
+usable recovery shell. Build `KRATOS_TEST_SYSTEM_IMAGE=malformed-program` in a
+separate directory and use `test-user-program.py --scenario malformed-program`
+to check package rejection, relaunch recovery, and shutdown. The writable
+volume host suite includes invalid names, exhausted capacity, unsupported or
+corrupt metadata, failed copy-on-write updates, and interrupted metadata
+writes. The user syscall host suite checks revoked handles. The QEMU marker
+fixtures exercise successful persistence and shell recovery; they do not yet
+inject a damaged writable snapshot, force volume exhaustion, or run the full
+multi-principal grant matrix in a guest. Those cases currently have host-level
+coverage only.
+
+Verification environment record (2026-11-13): every `kratos/kernel/*.zig`
+host test passed with Zig 0.17.1, `kratos/tools/test-system-image.py` passed
+(5 tests), Python and shell syntax checks passed, and the current freestanding
+kernel linked successfully. The documented build script was attempted and
+stopped at its pinned-version check (`expected Zig 0.17.0`); Limine 12.9.6
+host binaries were also absent. The checked-in `build/kratos.iso` is dated
+2026-11-01 and predates the filesystem work, so it was not used for QEMU
+evidence. QEMU runtime regressions must be rerun in an environment with the
+pinned toolchain and release files.
+
+This milestone provides no secure account login, general process isolation,
+POSIX conformance, cross-space saved views, or broad hardware support.

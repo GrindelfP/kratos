@@ -22,7 +22,7 @@ pub const Browser = struct {
     pub fn execute(self: *Browser, command: []const u8, args: []const u8) void {
         if (std.mem.eql(u8, command, "spaces")) {
             self.write(self.writer_context, "Accessible spaces: ");
-            if (self.volume.mount == null) self.write(self.writer_context, "none (system unavailable)\r\n") else self.write(self.writer_context, "system (only mounted space; principal grants arrive with ticket 0029)\r\n");
+            if (self.volume.mount == null) self.write(self.writer_context, "none (system unavailable)\r\n") else self.write(self.writer_context, "system (read-only system image)\r\n");
         } else if (std.mem.eql(u8, command, "pwd")) {
             self.write(self.writer_context, self.cwd[0..self.cwd_len]);
             self.write(self.writer_context, "\r\n");
