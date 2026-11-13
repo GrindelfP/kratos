@@ -1,6 +1,6 @@
 # Read files from user mode and launch a packaged program
 
-**Status:** planned
+**Status:** completed
 
 ## Description
 
@@ -30,3 +30,15 @@ program from `system:packages/hello/program` after kernel image validation.
 Depends on [0024](0024-kernel-readonly-files.md); shell browsing [0025](0025-shell-space-browsing.md)
 may proceed independently after the mount exists. This is the read-only
 filesystem slice of the [milestone](../roadmap.md#next-milestone-native-space-based-filesystem).
+
+## Completion
+
+Added bounded open/read/close syscalls with four generation-tagged per-run
+handles, validated user ranges and copy limits, cursor reads, and defined
+error results. `hello` now loads its KRU1 payload from
+`system:packages/hello/program`, while the program reads its message through
+the file syscall. Host syscall, image, system-image, and image-builder tests,
+assembly compilation, syntax checks, and a freestanding kernel link passed.
+The malformed-program QEMU fixture is included but QEMU runs remain unavailable
+locally because the installed Zig is 0.17.1 rather than 0.17.0 and Limine
+release assets are absent.
