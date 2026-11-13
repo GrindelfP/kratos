@@ -105,3 +105,5 @@
 [2026-11-13] - [19:45 MSK] - Completed ticket 0029: persisted stable accounts and grants, enforced owner/editor/reader policy in shell and user file reads, and verified metadata, shell, dispatcher, and syscall host suites; QEMU remains environment-blocked.
 
 [2026-11-13] - [20:30 MSK] - Completed ticket 0030: provisioned pinned Zig 0.17.0, Limine 12.9.6, and GNU objcopy locally; rebuilt fresh ISO images and passed QEMU system-mount, packaged-program, user-boundary, serial, keyboard, ATA persistence, writable-space remount, and two-boot owner/editor/reader grant and revocation fixtures.
+
+[2026-11-13] - [21:10 MSK] - Investigated recovery-shell writable-space navigation from an interactive transcript; documented that `cd`/`ls`/`pwd`/`cat` remain system-only while writable mutations require explicit full paths, and recorded the resulting user-visible bug report without changing behavior.
