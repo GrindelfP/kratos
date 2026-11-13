@@ -1,6 +1,6 @@
 # Mount and read the system space in the kernel
 
-**Status:** planned
+**Status:** completed
 
 ## Description
 
@@ -28,3 +28,14 @@ file interface independent of the image's raw offsets.
 Depends on [0022](0022-filesystem-namespace-contract.md) and
 [0023](0023-readonly-space-image.md). A kernel-only read interface makes the
 format and recovery behavior observable before adding a user syscall.
+
+## Completion
+
+Implemented a complete KRSYSIMG validator and read-only `system:` mount with
+stable object handles, bounded lookup, enumeration, stat, and offset reads.
+The kernel publishes the mount only after full validation and reports an
+unavailable mount on missing or malformed input, leaving the recovery shell
+available. Host parser/lookup tests (2/2), a freestanding kernel object build,
+shell/Python syntax checks, and `git diff --check` passed. The normal and
+malformed-image QEMU smoke driver is included but was not run here because a
+Limine 12.9.6 binary was unavailable locally.

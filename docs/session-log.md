@@ -91,3 +91,5 @@
 [2026-11-13] - [12:41 MSK] - Completed ticket 0023: defined and built deterministic read-only system images, added independent validation and malformed-image tests, integrated the Limine boot module, and verified the ISO and QEMU program regression.
 
 [2026-11-13] - [12:42 MSK] - Finalized the session with an updated handoff for completed tickets 0022–0023 and the next kernel mount task.
+
+[2026-11-13] - [18:53 MSK] - Completed ticket 0024: mounted fully validated read-only `system:` images through bounded kernel lookup, enumeration, stat, and offset-read operations with stable handles and malformed-image recovery. Host parser tests and freestanding build passed; the QEMU smoke fixture is ready but unrun because Limine 12.9.6 is unavailable locally.
