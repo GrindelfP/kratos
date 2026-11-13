@@ -1,6 +1,6 @@
 # Add a bounded persistent storage path in QEMU
 
-**Status:** planned
+**Status:** completed
 
 ## Description
 
@@ -30,3 +30,14 @@ Depends on the read-only mount [0024](0024-kernel-readonly-files.md), but can be
 implemented in parallel with [0025](0025-shell-space-browsing.md) and
 [0026](0026-user-files-and-package-launch.md). The durable mutation rules are
 deliberately separated into [0028](0028-persistent-space-mutations.md).
+
+## Completion
+
+Implemented a checked block API and primary-master ATA PIO driver with bounded
+polling, LBA28/capacity probing, and flush support. The documented QEMU path
+uses an optional q35 PIIX3 IDE attachment; a non-overwriting blank-image
+creator and marker-gated two-boot persistence fixture are included. Host block
+range/error tests (2/2), syntax checks, a freestanding kernel link, and QEMU
+acceptance of the IDE attachment passed. Guest read/write/reboot execution is
+deferred until ticket 0028 provides a safe mutation workload, and the ISO
+prerequisites are not available locally.

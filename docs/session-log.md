@@ -97,3 +97,5 @@
 [2026-11-13] - [18:59 MSK] - Completed ticket 0025: added bounded `system:` recovery-shell browsing with `spaces`, `pwd`, `ls`, `cd`, and `cat`, canonical paths, 16-entry listings, and 96-byte previews. Host command and shell-space tests passed; QEMU serial/keyboard checks remain blocked by unavailable Zig 0.17.0 and Limine release files.
 
 [2026-11-13] - [19:10 MSK] - Completed ticket 0026: added bounded user open/read/close syscalls with generation-tagged handles, migrated `hello` to its `system:` package payload, and made the user program read its message through the ABI. Host tests and a freestanding kernel link passed; QEMU fixtures are ready but blocked locally by Zig 0.17.0 and Limine release assets.
+
+[2026-11-13] - [19:18 MSK] - Completed ticket 0027: added a bounded primary-master ATA PIO storage path, checked block API, q35 IDE launch option, and non-overwriting image/persistence fixtures. Host block tests and a freestanding link passed; guest write/reboot execution awaits ticket 0028 and local ISO prerequisites.
