@@ -59,6 +59,11 @@ cp "$OUT/package-hello.kru" "$OUT/system-tree/packages/hello/program"
 cp "$ROOT/kratos/user/package-message.txt" "$OUT/system-tree/packages/hello/message"
 python3 "$ROOT/kratos/tools/build-system-image.py" "$OUT/system-tree" "$ROOT/kratos/user/system-types.json" "$OUT/system.img"
 python3 "$ROOT/kratos/tools/validate-system-image.py" "$OUT/system.img"
+case ${KRATOS_TEST_SYSTEM_IMAGE:-normal} in
+  normal) ;;
+  malformed) printf '\002' | dd of="$OUT/system.img" bs=1 seek=8 conv=notrunc 2>/dev/null ;;
+  *) echo "unknown KRATOS_TEST_SYSTEM_IMAGE fixture" >&2; exit 1 ;;
+esac
 cp "$OUT/system.img" "$OUT/iso_root/boot/system.img"
 # Link the independently built flat image as opaque kernel read-only data.
 cat > "$OUT/user-image.S" <<'EOF'

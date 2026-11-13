@@ -11,6 +11,7 @@ const kratos_app = @import("kratos_app.zig");
 const input = @import("input.zig");
 const animation = @import("animation.zig");
 const user_mode = @import("user_mode.zig");
+const system_image = @import("system_image.zig");
 
 const max_memory_map_entries = 128;
 const qemu_debug_exit_port: u16 = 0xf4;
@@ -34,10 +35,25 @@ export var memory_map_request: LimineMemmapRequest linksection(".limine_requests
     .response = null,
 };
 
+const LimineFile = extern struct {
+    revision: u64,
+    address: [*]u8,
+    size: u64,
+};
+const LimineModuleResponse = extern struct { revision: u64, module_count: u64, modules: [*]const *const LimineFile };
+const LimineModuleRequest = extern struct { id: [4]u64, revision: u64, response: ?*const LimineModuleResponse };
+export var module_request: LimineModuleRequest linksection(".limine_requests") = .{
+    .id = .{ 0xc7b1dd30df4c8b88, 0x0a82e883a194f07b, 0x3e7e279702be32af, 0xca1c4f3bd1280cee },
+    .revision = 0,
+    .response = null,
+};
+
 var raw_regions: [max_memory_map_entries]memory_map.LimineMemmapEntry = undefined;
 var validated_regions: [max_memory_map_entries]memory_map.Region = undefined;
 var allocation_cursors: [max_memory_map_entries]u64 = undefined;
 var frame_allocator: memory_map.FrameAllocator = undefined;
+var system_records: [system_image.max_objects]system_image.Record = undefined;
+var system_volume: system_image.Volume = .{};
 var shell_writer_context: u8 = 0;
 var keyboard_decoder = input.Decoder{};
 var inputs = input.Inputs{ .serial = .{ .context = &shell_writer_context, .poll = console.pollSerial }, .keyboard = .{ .context = &keyboard_decoder, .poll = pollKeyboard } };
@@ -292,6 +308,28 @@ fn initializeMemoryMap() shell_commands.MemorySummary {
     };
 }
 
+fn initializeSystemMount() void {
+    const response = module_request.response orelse {
+        console.write("KratOS: system image unavailable; recovery shell active\r\n");
+        return;
+    };
+    if (response.module_count == 0 or response.module_count > 16) {
+        console.write("KratOS: invalid system image module list; recovery shell active\r\n");
+        return;
+    }
+    const module = response.modules[0].*;
+    if (module.size > system_image.max_image_size or module.size < 32) {
+        console.write("KratOS: invalid system image size; recovery shell active\r\n");
+        return;
+    }
+    const mounted = system_image.Mount.init(module.address[0..@intCast(module.size)], &system_records) catch {
+        console.write("KratOS: malformed system image; recovery shell active\r\n");
+        return;
+    };
+    system_volume.mount = mounted;
+    console.write("KratOS: system image mounted read-only\r\n");
+}
+
 fn runShell(memory: shell_commands.MemorySummary) noreturn {
     var context = shell_commands.Context{
         .memory = memory,
@@ -351,6 +389,7 @@ export fn kratos_kernel_main() noreturn {
     user_mode.setup();
     interrupts.install();
     const memory = initializeMemoryMap();
+    initializeSystemMount();
     if (user_mode.run(.invalid_instruction) and user_mode.run(.kernel_read) and user_mode.run(.code_write) and user_mode.run(.data_execute)) {
         console.write("KratOS: ring3 boundary self-test passed\r\n");
     } else {
