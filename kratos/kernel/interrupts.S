@@ -26,7 +26,8 @@ kratos_syscall_entry:
     movq %rsi, %rdx
     movq %rdi, %rsi
     movq %rax, %rdi
-    movq 112(%rsp), %rcx
+    /* Original RDX (syscall arg3) sits below saved RCX and above the iret frame. */
+    movq 96(%rsp), %rcx
     movq 120(%rsp), %r8
     movq %rsp, %r12
     andq $-16, %rsp

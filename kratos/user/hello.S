@@ -50,7 +50,7 @@ code_start:
     cmpq $-6, %rax
     jne failed
     movq $3, %rax
-    movabsq $0x400000, %rdi
+    movabsq $0x3fffff, %rdi
     movq $1, %rsi
     int $0x80
     cmpq $-1, %rax

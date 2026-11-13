@@ -72,7 +72,7 @@ with tempfile.TemporaryDirectory(prefix="kratos-program-") as directory:
             elif args.scenario == "syscalls":
                 wait_for(b"hello: exited with status 0x0000000000000015\r\n")
             else:
-                wait_for(b"Hello from the system space.\r\n")
+                wait_for(b"Hello from the system space.\n")
                 wait_for(b"hello: exited with status 0x0000000000000007\r\n")
             wait_for(b"kratos> ")
             marker = f"shell-recovered-{launch}".encode()
