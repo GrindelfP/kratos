@@ -10,7 +10,7 @@ import time
 parser = argparse.ArgumentParser()
 parser.add_argument("iso", nargs="?", default="build/kratos.iso")
 parser.add_argument("--no-nx", action="store_true")
-parser.add_argument("--scenario", choices=("hello", "syscalls", "ud", "kernel-read", "code-write", "data-execute"), default="hello")
+parser.add_argument("--scenario", choices=("hello", "malformed-program", "syscalls", "ud", "kernel-read", "code-write", "data-execute"), default="hello")
 args = parser.parse_args()
 iso, no_nx = args.iso, args.no_nx
 if no_nx and args.scenario != "hello":
@@ -62,15 +62,17 @@ with tempfile.TemporaryDirectory(prefix="kratos-program-") as directory:
         for launch in range(2):
             serial.sendall(b"hello\r")
             if no_nx:
-                wait_for(b"hello: image unavailable, invalid, or program faulted\r\n")
+                wait_for(b"hello: package unavailable, invalid, or program faulted\r\n")
+            elif args.scenario == "malformed-program":
+                wait_for(b"hello: package unavailable, invalid, or program faulted\r\n")
             elif args.scenario in faults:
                 vector, error = faults[args.scenario]
                 wait_for(f"KratOS: user fault vector=0x{vector:016x} error=0x{error:016x}".encode())
-                wait_for(b"hello: image unavailable, invalid, or program faulted\r\n")
+                wait_for(b"hello: package unavailable, invalid, or program faulted\r\n")
             elif args.scenario == "syscalls":
                 wait_for(b"hello: exited with status 0x0000000000000015\r\n")
             else:
-                wait_for(b"Hello from a separate user program!\r\n")
+                wait_for(b"Hello from the system space.\r\n")
                 wait_for(b"hello: exited with status 0x0000000000000007\r\n")
             wait_for(b"kratos> ")
             marker = f"shell-recovered-{launch}".encode()

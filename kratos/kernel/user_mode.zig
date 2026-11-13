@@ -33,8 +33,6 @@ extern const kratos_user_nx_begin: u8;
 extern const kratos_user_nx_end: u8;
 extern const kratos_user_syscalls_begin: u8;
 extern const kratos_user_syscalls_end: u8;
-extern const kratos_program_begin: u8;
-extern const kratos_program_end: u8;
 
 pub const Test = enum { invalid_instruction, kernel_read, code_write, data_execute, syscalls, program };
 
@@ -54,7 +52,11 @@ pub fn setup() void {
 
 /// All backing pages are statically reserved for the lifetime of the kernel.
 /// Returns false without entering user mode if prerequisites are unavailable.
-pub fn run(test_case: Test) bool {
+pub fn run(test_case: Test) bool { return runWith(test_case, null); }
+
+pub fn runProgram(program: []const u8) bool { return runWith(.program, program); }
+
+fn runWith(test_case: Test, program: ?[]const u8) bool {
     const hhdm = hhdm_request.response orelse return false;
     const address = address_request.response orelse return false;
     const cr4 = asm volatile ("mov %%cr4, %[value]"
@@ -98,11 +100,11 @@ pub fn run(test_case: Test) bool {
         .code_write => .{ @intFromPtr(&kratos_user_write_begin), @intFromPtr(&kratos_user_write_end) },
         .data_execute => .{ @intFromPtr(&kratos_user_nx_begin), @intFromPtr(&kratos_user_nx_end) },
         .syscalls => .{ @intFromPtr(&kratos_user_syscalls_begin), @intFromPtr(&kratos_user_syscalls_end) },
-        .program => .{ @intFromPtr(&kratos_program_begin), @intFromPtr(&kratos_program_end) },
+        .program => .{ 0, 0 },
     };
-    if (end <= begin or end - begin > code.len + 12) return false;
-    const snippet: [*]const u8 = @ptrFromInt(begin);
-    const entry = if (test_case == .program) image.load(snippet[0 .. end - begin], &code) catch return false else blk: {
+    if (test_case != .program and (end <= begin or end - begin > code.len + 12)) return false;
+    const entry = if (test_case == .program) image.load(program orelse return false, &code) catch return false else blk: {
+        const snippet: [*]const u8 = @ptrFromInt(begin);
         if (end - begin > code.len) return false;
         @memcpy(code[0 .. end - begin], snippet[0 .. end - begin]);
         break :blk 0;
@@ -112,6 +114,7 @@ pub fn run(test_case: Test) bool {
     interrupts.user_exited = false;
     interrupts.user_exit = 0;
     interrupts.user_active = true;
+    interrupts.resetUserFiles();
     kratos_user_enter(root_phys, 0x400000 + entry, 0x403000);
     if (test_case == .program) return interrupts.user_exited;
     if (test_case == .syscalls) return data[0] == 0x23 and data[1] == 0 and interrupts.user_exited and interrupts.user_exit == 42;

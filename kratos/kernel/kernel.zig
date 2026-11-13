@@ -55,6 +55,7 @@ var allocation_cursors: [max_memory_map_entries]u64 = undefined;
 var frame_allocator: memory_map.FrameAllocator = undefined;
 var system_records: [system_image.max_objects]system_image.Record = undefined;
 var system_volume: system_image.Volume = .{};
+var packaged_program: [12 + 4096]u8 = undefined;
 var shell_writer_context: u8 = 0;
 var keyboard_decoder = input.Decoder{};
 var inputs = input.Inputs{ .serial = .{ .context = &shell_writer_context, .poll = console.pollSerial }, .keyboard = .{ .context = &keyboard_decoder, .poll = pollKeyboard } };
@@ -328,7 +329,17 @@ fn initializeSystemMount() void {
         return;
     };
     system_volume.mount = mounted;
+    interrupts.setSystemVolume(&system_volume);
     console.write("KratOS: system image mounted read-only\r\n");
+}
+
+fn launchPackagedHello() bool {
+    const handle = system_volume.lookup("system:/packages/hello/program") catch return false;
+    const info = system_volume.stat(handle) catch return false;
+    if (info.file_type != .executable or info.size > packaged_program.len) return false;
+    const amount = system_volume.read(handle, 0, &packaged_program) catch return false;
+    if (amount != info.size) return false;
+    return user_mode.runProgram(packaged_program[0..amount]);
 }
 
 fn runShell(memory: shell_commands.MemorySummary) noreturn {
@@ -354,7 +365,7 @@ fn runShell(memory: shell_commands.MemorySummary) noreturn {
         };
         if (action == .kratos) { runKratos(); continue; }
         if (action == .hello) {
-            if (user_mode.run(.program)) {
+            if (launchPackagedHello()) {
                 const digits = "0123456789abcdef";
                 var status: [16]u8 = undefined;
                 for (&status, 0..) |*byte, i| {
@@ -364,7 +375,7 @@ fn runShell(memory: shell_commands.MemorySummary) noreturn {
                 writeShellOutput(&shell_writer_context, "hello: exited with status 0x");
                 writeShellOutput(&shell_writer_context, &status);
                 writeShellOutput(&shell_writer_context, "\r\n");
-            } else writeShellOutput(&shell_writer_context, "hello: image unavailable, invalid, or program faulted\r\n");
+            } else writeShellOutput(&shell_writer_context, "hello: package unavailable, invalid, or program faulted\r\n");
             continue;
         }
         if (action == .halt) {
@@ -393,6 +404,7 @@ export fn kratos_kernel_main() noreturn {
     interrupts.install();
     const memory = initializeMemoryMap();
     initializeSystemMount();
+    interrupts.setSystemVolume(&system_volume);
     if (user_mode.run(.invalid_instruction) and user_mode.run(.kernel_read) and user_mode.run(.code_write) and user_mode.run(.data_execute)) {
         console.write("KratOS: ring3 boundary self-test passed\r\n");
     } else {

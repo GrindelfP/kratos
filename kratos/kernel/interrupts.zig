@@ -19,6 +19,7 @@ const Idtr = packed struct {
 extern const kratos_exception_stub_table: [32]usize;
 extern fn kratos_syscall_entry() void;
 const syscalls = @import("user_syscalls.zig");
+const system_image = @import("system_image.zig");
 const console = @import("console.zig");
 
 var idt: [129]Gate = @splat(.{
@@ -89,13 +90,17 @@ pub var user_vector: u64 = 0;
 pub var user_error: u64 = 0;
 pub var user_exit: u64 = 0;
 pub var user_exited = false;
+var user_files: syscalls.Files = undefined;
 
-export fn kratos_syscall_dispatch(number: u64, arg1: u64, arg2: u64, cs: u64) u64 {
+pub fn setSystemVolume(volume: *const system_image.Volume) void { user_files = .{ .volume = volume }; }
+pub fn resetUserFiles() void { user_files.reset(); }
+
+export fn kratos_syscall_dispatch(number: u64, arg1: u64, arg2: u64, arg3: u64, cs: u64) u64 {
     if (!user_active or cs & 3 != 3) {
         serialWrite("KratOS: fatal invalid syscall origin\r\n");
         while (true) asm volatile ("cli; hlt");
     }
-    switch (syscalls.dispatch(number, arg1, arg2)) {
+    switch (syscalls.dispatch(number, arg1, arg2, arg3)) {
         .result => |value| return value,
         .output => |output| {
             if (output.length != 0) {
@@ -104,6 +109,16 @@ export fn kratos_syscall_dispatch(number: u64, arg1: u64, arg2: u64, cs: u64) u6
             }
             return output.length;
         },
+        .open => |request| {
+            const path: [*]const u8 = @ptrFromInt(request.address);
+            return user_files.open(path[0..@intCast(request.length)]);
+        },
+        .read => |request| {
+            if (request.length == 0) return 0;
+            const bytes: [*]u8 = @ptrFromInt(request.address);
+            return user_files.read(request.handle, bytes[0..@intCast(request.length)]);
+        },
+        .close => |handle| return user_files.close(handle),
         .exit => |status| {
             user_exit = status;
             user_exited = true;

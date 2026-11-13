@@ -339,11 +339,22 @@ checks the 0018 fault cases, shell recovery and kernel-origin NMI handling.
 This fixture is not a separately loaded program, scheduler or security guarantee.
 ## Separate user program
 
-`hello` launches a separately assembled x86_64 freestanding program in ring 3.
-Its syscall output goes to COM1 (not the framebuffer); the shell prints its
-64-bit exit status in hexadecimal on both displays. It prints `Hello from a
-separate user program!` and exits with status 7. Type `hello` again to reuse the
-same context. `hel` completion is now ambiguous between `help` and `hello`.
+`hello` launches the KRU1 program from `system:/packages/hello/program` after
+the complete system image and program have been validated. The program opens
+`system:/packages/hello/message`, reads it through the file syscalls, prints
+`Hello from the system space.`, closes the handle, and exits with status 7.
+Syscall output goes to COM1; the shell prints its 64-bit exit status in
+hexadecimal on both displays. Type `hello` again to exercise a fresh handle
+table and reused user context.
+
+The fixed-context ABI uses syscall 3 for `open(path, path_length)`, syscall 4
+for `read(handle, writable_buffer, length)` with a per-handle sequential cursor,
+and syscall 5 for `close(handle)`. Paths are limited to 255 bytes; reads are
+limited to 512 bytes. There are four handles per run. EOF returns zero, invalid
+user ranges return -1, oversized requests -2, missing paths -4, wrong-kind
+paths -5, stale/closed handles -6, absent mounts -7, and exhausted handle slots
+-8, and invalid namespace paths -9. Handles are generation-tagged and reset between launches. This is a
+single-program read-only file API, not POSIX or a process-wide filesystem ABI.
 
 With the prerequisites and pinned versions above, build and run:
 
@@ -356,8 +367,8 @@ python3 kratos/test-user-program.py /tmp/kratos-build/kratos.iso --no-nx
 
 The build also requires `objcopy` (override with `OBJCOPY`). It independently
 assembles `kratos/user/hello.S` for `x86_64-none-elf`, extracts its `.text` into
-`hello.kru`, and links that opaque file into the kernel's read-only data; the
-kernel ELF is then placed in the ISO. This is not an ELF loader. KRU1 consists
+`hello.kru`, then packages that opaque KRU1 file in the read-only system image;
+the kernel ELF is placed in the ISO alongside the image. This is not an ELF loader. KRU1 consists
 of `KRU1`, a little-endian u32 payload length, a little-endian u32 entry offset,
 then exactly that many payload bytes. Length must be 1–4096 and entry must be
 inside the payload. There are no relocations, imports, or separate initialized
@@ -366,14 +377,21 @@ data segment: code and constants must be position-independent. The entry is
 executable page at `0x400000`, writable NX data at `0x401000`, and writable NX
 stack at `0x402000` (initial RSP `0x403000`). Syscalls use the ABI above.
 
-The loader checks the complete image and fixed mapping/physical prerequisites
-before entry. Missing, malformed, oversized or unsupported images, and user
-faults, report failure and return to the shell. The static pages are zeroed and
-reused on each run; only one context can run and no scheduling, preemption,
-filesystem, process isolation guarantee, or termination of a looping program
-is provided. The executable bytes are trusted boot content, not authenticated.
-The `--no-nx` test verifies visible failure and continued shell operation, not
-injection of a malformed image; malformed cases are exercised by host tests.
+The loader checks the mounted package, complete KRU1 image, and fixed
+mapping/physical prerequisites before entry. Missing, malformed, oversized or
+unsupported images, and user faults, report failure and return to the shell.
+The static pages are zeroed and reused on each run; only one context can run
+and no scheduling, preemption, general process isolation, authentication, or
+termination of a looping program is provided. The executable bytes are trusted
+boot content, not authenticated. A malformed packaged program fixture can be
+built with `KRATOS_TEST_SYSTEM_IMAGE=malformed-program`; run the usual user
+program test with `--scenario malformed-program` to verify shell recovery.
+For example, build that fixture in its own output directory and run it with:
+
+```sh
+KRATOS_TEST_SYSTEM_IMAGE=malformed-program OUT_DIR=/tmp/kratos-malformed-program ./kratos/build-qemu.sh --build-only
+python3 kratos/test-user-program.py /tmp/kratos-malformed-program/kratos.iso --scenario malformed-program
+```
 
 ## User-mode milestone regression
 
@@ -419,7 +437,7 @@ and shutdown passed`; a missing result, timeout, unexpected QEMU exit, or wrong
 shutdown status fails the command. `--no-nx` instead expects visible failure
 on each launch and the same recovery and shutdown checks.
 
-The normal image must print `Hello from a separate user program!` and exit 7.
+The normal image must print `Hello from the system space.` and exit 7.
 The syscall fixture exits 21 only if a kernel-address output request returns -1
 and unknown call 999 returns -3; mismatch exits 99 and fails the test. The
 fault fixtures respectively assert user #UD vector 6/error 0, kernel-memory
@@ -442,8 +460,8 @@ program still has no timeout or preemption.
 The normal build requires Python 3 and generates `build/system.img` (or
 `$OUT_DIR/system.img`). It packages the normal KRU1 hello program and a text
 message, validates the result, and places it at `/boot/system.img` in the ISO.
-Limine loads it as a boot module; the current kernel does not mount it yet.
-The compiled-in program remains in use until ticket 0026. The builder accepts a
+Limine loads it as a boot module; the kernel validates and mounts it read-only
+as `system:` before exposing it to shell or user mode. The builder accepts a
 system tree containing exactly the `boot`, `packages`, and `policy` root
 directories and a JSON mapping of each relative file path to `opaque`, `text`,
 or `executable`. For example, after the normal build:

@@ -57,31 +57,24 @@ esac
 mkdir -p "$OUT/system-tree/boot" "$OUT/system-tree/packages/hello" "$OUT/system-tree/policy"
 cp "$OUT/package-hello.kru" "$OUT/system-tree/packages/hello/program"
 cp "$ROOT/kratos/user/package-message.txt" "$OUT/system-tree/packages/hello/message"
+if [ "${KRATOS_TEST_SYSTEM_IMAGE:-normal}" = "malformed-program" ]; then
+  printf 'BAD KRU1 payload' > "$OUT/system-tree/packages/hello/program"
+fi
 python3 "$ROOT/kratos/tools/build-system-image.py" "$OUT/system-tree" "$ROOT/kratos/user/system-types.json" "$OUT/system.img"
 python3 "$ROOT/kratos/tools/validate-system-image.py" "$OUT/system.img"
 case ${KRATOS_TEST_SYSTEM_IMAGE:-normal} in
-  normal) ;;
+  normal|malformed-program) ;;
   malformed) printf '\002' | dd of="$OUT/system.img" bs=1 seek=8 conv=notrunc 2>/dev/null ;;
   *) echo "unknown KRATOS_TEST_SYSTEM_IMAGE fixture" >&2; exit 1 ;;
 esac
 cp "$OUT/system.img" "$OUT/iso_root/boot/system.img"
-# Link the independently built flat image as opaque kernel read-only data.
-cat > "$OUT/user-image.S" <<'EOF'
-.section .rodata
-.globl kratos_program_begin, kratos_program_end
-kratos_program_begin:
-.incbin "hello.kru"
-kratos_program_end:
-.section .note.GNU-stack,"",@progbits
-EOF
-(cd "$OUT" && "$CLANG" --target=x86_64-none-elf -c user-image.S -o user-image.o)
 "$CLANG" --target=x86_64-none-elf -c "$ROOT/kratos/kernel/entry.S" \
   -o "$OUT/entry.o"
 "$CLANG" --target=x86_64-none-elf -c "$ROOT/kratos/kernel/interrupts.S" \
   -o "$OUT/interrupts.o"
 "$CLANG" --target=x86_64-none-elf -c "$ROOT/kratos/kernel/user_entry.S" \
   -o "$OUT/user_entry.o"
-"$ZIG" build-exe "$ROOT/kratos/kernel/kernel.zig" "$OUT/entry.o" "$OUT/interrupts.o" "$OUT/user_entry.o" "$OUT/user-image.o" \
+"$ZIG" build-exe "$ROOT/kratos/kernel/kernel.zig" "$OUT/entry.o" "$OUT/interrupts.o" "$OUT/user_entry.o" \
   -target x86_64-freestanding -O ReleaseSmall -fno-entry -mcmodel=kernel \
   -mno-red-zone -T "$ROOT/kratos/kernel/linker.ld" \
   -femit-bin="$OUT/kratos.elf"

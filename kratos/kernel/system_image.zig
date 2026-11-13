@@ -224,7 +224,7 @@ test "reject malformed image without publishing a mount" {
     try testing.expectError(error.Unavailable, (Volume{}).lookup("system:/"));
 }
 
-fn makeFixture(allocator: std.mem.Allocator) ![]u8 {
+pub fn makeFixture(allocator: std.mem.Allocator) ![]u8 {
     const count: usize = 6;
     const data_start = header_size + count * record_size;
     const content = "hello";
