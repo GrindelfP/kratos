@@ -69,3 +69,5 @@
 2026-11-10 - 17:28 MSK - Planned tickets 0018–0021 for the user-mode boundary, minimal syscall ABI, first separate user program, and end-to-end QEMU verification; linked them from the roadmap.
 
 2026-11-10 - 17:31 MSK - Finalized the planning session with a handoff in docs/session.md; recorded verification limits and ticket 0018 as the next step.
+
+2026-11-13 - 11:41 MSK - Started ticket 0018 with host-tested user-range validation and a successful freestanding ISO build. The validator is not connected to page tables; ring-3 transition, isolation, fault recovery, and QEMU verification remain outstanding.

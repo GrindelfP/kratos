@@ -1,6 +1,6 @@
 # Establish the x86_64 user-mode boundary
 
-**Status:** planned
+**Status:** in progress — range-validation foundation only; no user-mode boundary yet
 
 ## Description
 
@@ -30,3 +30,18 @@ than introducing a scheduler or a general process model.
 This is the foundation for a separately built user program. It builds on the
 memory-map allocator and exception handling from tickets 0005 and 0006. A small
 embedded test context may exercise the boundary; a general loader is not needed.
+
+## Current implementation and remaining work
+
+`kratos/kernel/user_ranges.zig` validates aligned, non-overlapping lower-half
+page ranges and rejects writable-executable ranges. Run its host tests with
+`zig test kratos/kernel/user_ranges.zig` (Zig 0.17.0). It is not yet connected
+to page-table construction and enforces no runtime access control.
+
+The kernel still runs only at ring 0; its exception handler halts on every
+exception. The allocator is monotonic and has no frame-release operation. A
+future implementation must establish descriptor/TSS and privilege stacks,
+construct and tear down isolated mappings with an explicit allocation-failure
+policy, distinguish user-origin exceptions using the saved CS, and verify
+actual ring-3 faults and shell recovery in QEMU. No QEMU user-mode test or
+security claim is possible with the current code.
