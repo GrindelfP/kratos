@@ -1,8 +1,7 @@
 # Limine/QEMU kernel prototype
 
 This is a reproducibility scaffold for **Zig 0.17.0** and the selected
-**Limine x86-64** boot protocol. The Zig kernel uses inline assembly only for
-the x86 port I/O instructions and `hlt`.
+**Limine x86-64** boot protocol, including a bounded ring-3 test context.
 
 ## Prerequisites
 
@@ -34,6 +33,11 @@ expected initial UART output is:
 ```text
 KratOS: Limine x86_64 kernel entered
 KratOS: memory map entries=0000000000000010 first usable frame=0x000000000007e000
+KratOS: user fault vector=0x0000000000000006 error=0x0000000000000000
+KratOS: user fault vector=0x000000000000000e error=0x0000000000000005
+KratOS: user fault vector=0x000000000000000e error=0x0000000000000007
+KratOS: user fault vector=0x000000000000000e error=0x0000000000000015
+KratOS: ring3 boundary self-test passed
 kratos>
 ```
 
@@ -43,6 +47,59 @@ usable physical page frame, installs an IDT for CPU exceptions, then enters a
 bounded shell. Click the graphical QEMU window and type commands there; release
 QEMU keyboard capture using its displayed host-key shortcut. Alternatively type
 into the serial terminal for recovery and automation.
+
+## Bounded ring-3 self-test
+
+At boot the kernel executes four short embedded snippets, one at a time, before
+starting the shell. Each writes its actual CS selector (0x23) to user data.
+They then cause respectively invalid opcode (#UD), a read of kernel memory,
+a write to read-only user code, and instruction fetch from NX user data (#PF).
+The page-fault error codes above identify user protection violations: 5 for a
+read, 7 for a write, and 0x15 for instruction fetch. A failed or unavailable
+test is reported on serial and the shell still starts if recovery was possible.
+
+The kernel installs its own GDT with ring-0 and ring-3 code/data descriptors and
+a TSS. Its RSP0 points to a dedicated 16 KiB kernel exception stack; the TSS
+I/O bitmap is absent and user IOPL is zero. With interrupts disabled, `iretq`
+enters ring 3. An exception gate switches to RSP0; the dispatcher checks both
+the active-test flag and the saved CS privilege bits before recovering #UD or
+#PF. Recovery restores the original CR3, CR4, and saved kernel ABI stack, then
+returns to the caller. All kernel-origin exceptions and other user exceptions
+remain fatal. There is no general syscall or arbitrary-program fault handler.
+
+Each run uses a fresh four-level root copied from the Limine root, with the
+user bit cleared on every inherited root entry and entry zero replaced by a
+private user page-table tree. Only 0x400000 (code: user/read/execute), 0x401000
+(data: user/read/write/NX), and 0x402000 (stack: user/read/write/NX) are user
+mapped; the stack initially points just above its page. Null and all other
+low-half pages are absent. Higher-half kernel/HHDM mappings are supervisor-only.
+NX support is required and enabled; LA57 and PCID are rejected. Global TLB
+entries are flushed by temporarily disabling CR4.PGE across the switch.
+
+Page tables and backing pages are page-aligned static kernel storage, reserved
+for the kernel lifetime and reused only after returning to the original CR3;
+they are zeroed before each run. No monotonic allocator frames are consumed,
+so neither partial allocation nor freeing is needed. The code validates the
+fixed virtual ranges, physical-address arithmetic and alignment before use;
+missing Limine responses, unsupported paging/NX, or invalid setup skip the
+test and leave the shell available. This design assumes the Limine QEMU boot
+environment and one CPU, and only supports the trusted, bounded snippets; it
+does not provide timeouts, preemption, SMP, a process model, or a security claim.
+
+Reproduce with Zig 0.17.0 and the prerequisites above:
+
+```sh
+ZIG=/path/to/zig LIMINE_DIR=/path/to/limine ./kratos/build-qemu.sh --build-only
+zig test kratos/kernel/user_ranges.zig
+python3 kratos/test-user-boundary.py build/kratos.iso
+./kratos/test-serial-shell.sh build/kratos.iso
+```
+
+The boundary test also sends `echo recovered-shell` and injects a kernel-mode
+NMI via the QEMU monitor, expecting fatal vector 2 rather than user recovery.
+
+## Shell commands
+
 Built-ins are `help`, `about`, `echo <text>`, `mem`, `clear`, `kratos`, `halt`,
 and `shutdown`;
 unknown commands report an error and return to the prompt. Input is limited to

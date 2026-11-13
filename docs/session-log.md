@@ -71,3 +71,5 @@
 2026-11-10 - 17:31 MSK - Finalized the planning session with a handoff in docs/session.md; recorded verification limits and ticket 0018 as the next step.
 
 2026-11-13 - 11:41 MSK - Started ticket 0018 with host-tested user-range validation and a successful freestanding ISO build. The validator is not connected to page tables; ring-3 transition, isolation, fault recovery, and QEMU verification remain outstanding.
+
+2026-11-13 - 11:50 MSK - Completed ticket 0018's fixed ring-3 context, supervisor-only inherited mappings, TSS/exception recovery and permission tests. Verified host-testable modules, ISO build, QEMU user faults and kernel NMI, serial and keyboard shell regressions, and no-NX fallback. Direct host testing of interrupts.zig is unsupported by its freestanding port-I/O assembly; it was built and exercised in QEMU.
