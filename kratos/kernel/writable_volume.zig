@@ -370,7 +370,7 @@ pub const Volume = struct {
     }
 
     pub fn lookup(self: *const Volume, path: []const u8) Error!Handle {
-        if (path.len < 6 or path.len > 255) return error.InvalidPath;
+        if (path.len < 2 or path.len > 255) return error.InvalidPath;
         const colon = std.mem.indexOfScalar(u8, path, ':') orelse return error.InvalidPath;
         if (colon == 0 or colon > max_name) return error.InvalidPath;
         var current = self.findChild(0, path[0..colon]) orelse return error.NotFound;
@@ -893,6 +893,7 @@ test "names, duplicates, reserved areas, exhaustion, and stale handles are bound
     var volume = Volume{ .device = fake.device() };
     try volume.formatBlank();
     const space = try volume.createSpace("team");
+    try testing.expectEqual(space.id, (try volume.lookup("team:")).id);
     const archive = try volume.lookup("team:/archive");
     try testing.expectError(error.InvalidName, volume.createFile(archive, "Bad"));
     try testing.expectError(error.Reserved, volume.createDirectory(space, "other"));
