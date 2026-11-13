@@ -107,3 +107,5 @@
 [2026-11-13] - [20:30 MSK] - Completed ticket 0030: provisioned pinned Zig 0.17.0, Limine 12.9.6, and GNU objcopy locally; rebuilt fresh ISO images and passed QEMU system-mount, packaged-program, user-boundary, serial, keyboard, ATA persistence, writable-space remount, and two-boot owner/editor/reader grant and revocation fixtures.
 
 [2026-11-13] - [21:10 MSK] - Investigated recovery-shell writable-space navigation from an interactive transcript; documented that `cd`/`ls`/`pwd`/`cat` remain system-only while writable mutations require explicit full paths, and recorded the resulting user-visible bug report without changing behavior.
+
+[2026-11-13] - [21:15 MSK] - Finalized the native filesystem milestone session: tickets 0024–0030 are committed with fresh pinned-toolchain QEMU verification; recorded the writable-space navigation follow-up and updated the actionable handoff.

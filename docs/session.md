@@ -2,33 +2,18 @@
 
 ## Goal and completed work
 
-Started the native filesystem milestone and completed tickets
-[0022](tickets/0022-filesystem-namespace-contract.md) and
-[0023](tickets/0023-readonly-space-image.md). The former defines the namespace
-contract and implements bounded path parsing; the latter defines and builds a
-deterministic read-only system image, validates it independently, and includes
-it as a Limine boot module.
+Completed tickets [0024](tickets/0024-kernel-readonly-files.md) through [0030](tickets/0030-filesystem-qemu-verification.md), finishing the native filesystem milestone. KratOS now validates and mounts the read-only `system:` image, provides bounded kernel and user file reads, supports a persistent QEMU ATA data volume, and persists spaces, accounts, and grants.
 
 ## Decisions and limits
 
-Filesystem names use lowercase ASCII letters. The image contains the
-`system:packages/hello` package. The kernel does not yet mount the module;
-`hello` still uses its compiled-in payload. Storage mutations and access
-control remain future work. See the ticket and filesystem documentation for
-the format and namespace contracts.
+The checked-in `system:` image stays read-only; `imgs/kratos1.img` is an ignored local writable data disk. The project-local `.tools/` cache contains the pinned Zig 0.17.0 and Limine 12.9.6 prerequisites. Account selection in the recovery shell remains a privileged test control, not authentication.
+
+The recovery browser (`cd`, `ls`, `pwd`, `cat`) still only navigates `system:`. Writable mutations work through full explicit paths such as `touch team:/work/note`; see [the bug report](research/2026-11-13-writable-space-shell-bug-report.md).
 
 ## Verification
 
-Ticket 0022 passed `zig test kratos/kernel/namespace.zig` with Zig 0.17.0.
-Ticket 0023 passed `python3 kratos/tools/test-system-image.py`, the documented
-ISO build with Zig 0.17.0 and Limine 12.9.6, and
-`python3 kratos/test-user-program.py /tmp/kratos-ticket-0023/kratos.iso` in
-QEMU, including launch, relaunch, shell recovery and shutdown. See the tickets
-for details. The work was committed and pushed through `f25cb88`.
+With the pinned local toolchain, fresh ISO/data images passed QEMU system-image mount, packaged `hello` launch/relaunch, user-boundary/syscall, serial, keyboard, ATA persistence, writable-space remount, and two-boot grant/revoke fixtures. Host suites passed alongside the QEMU runs. Commits are local on `main` and ready to push.
 
 ## Next step
 
-Implement [ticket 0024](tickets/0024-kernel-readonly-files.md): validate and
-mount the system image, provide bounded kernel lookup and reads, and verify
-normal and malformed images while preserving the recovery shell. Tickets
-0025–0030 remain planned.
+Push `main` to `origin/main`, then address the writable-space shell navigation bug by unifying the recovery browser with the principal-aware writable-volume lookup layer.
