@@ -175,6 +175,7 @@ test "known commands, unknown command, halt, and shutdown actions" {
     var context = Context{ .writer_context = &output, .write = TestOutput.write, .clear = TestOutput.clear };
     try std.testing.expectEqual(Action.continue_shell, try execute(&context, "help"));
     try std.testing.expectEqual(Action.kratos, try execute(&context, "kratos"));
+    try std.testing.expectEqual(Action.hello, try execute(&context, "hello"));
     try std.testing.expectEqual(Action.continue_shell, try execute(&context, "about"));
     try std.testing.expectEqual(Action.continue_shell, try execute(&context, "clear"));
     try std.testing.expectEqual(Action.continue_shell, try execute(&context, "nonesuch arg"));

@@ -55,7 +55,8 @@ pub fn complete(line: []const u8) Completion {
 }
 
 test "completion only matches first token" {
-    try std.testing.expectEqualStrings("help", complete("  hel").unique);
+    try std.testing.expect(complete("  hel") == .ambiguous);
+    try std.testing.expectEqualStrings("help", complete("  help").unique);
     try std.testing.expect(complete("h") == .ambiguous);
     try std.testing.expect(complete("") == .ambiguous);
     try std.testing.expect(complete("zzz") == .none);

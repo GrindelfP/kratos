@@ -314,10 +314,16 @@ fn runShell(memory: shell_commands.MemorySummary) noreturn {
         if (action == .kratos) { runKratos(); continue; }
         if (action == .hello) {
             if (user_mode.run(.program)) {
-                console.write("hello: exited with status 0x");
-                serialWriteHex(interrupts.user_exit);
-                console.write("\r\n");
-            } else console.write("hello: image unavailable, invalid, or program faulted\r\n");
+                const digits = "0123456789abcdef";
+                var status: [16]u8 = undefined;
+                for (&status, 0..) |*byte, i| {
+                    const shift: u6 = @intCast((15 - i) * 4);
+                    byte.* = digits[@as(usize, @truncate((interrupts.user_exit >> shift) & 15))];
+                }
+                writeShellOutput(&shell_writer_context, "hello: exited with status 0x");
+                writeShellOutput(&shell_writer_context, &status);
+                writeShellOutput(&shell_writer_context, "\r\n");
+            } else writeShellOutput(&shell_writer_context, "hello: image unavailable, invalid, or program faulted\r\n");
             continue;
         }
         if (action == .halt) {

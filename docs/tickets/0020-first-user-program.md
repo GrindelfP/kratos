@@ -1,6 +1,6 @@
 # Build and launch the first user-mode program
 
-**Status:** planned
+**Status:** done — fixed embedded flat image
 
 ## Description
 
@@ -30,3 +30,12 @@ limited way to load it, and launch it from the existing kernel shell.
 Depends on the boundary in [0018](0018-user-mode-boundary.md) and syscall ABI in
 [0019](0019-minimal-user-syscalls.md). This proves the first separate userland
 artifact without requiring a full process lifecycle or persistent storage.
+
+## Implementation and verification
+
+The separate build, KRU1 format, fixed mappings, serial-only syscall output,
+launch command, limits and reproducible tests are in
+[qemu-boot.md](../qemu-boot.md#separate-user-program). Host validation tests
+cover malformed images; QEMU covers two launches, exit status, shell recovery,
+shutdown, and the unavailable-NX failure path. The normal boundary, serial,
+and keyboard regressions also passed. No filesystem or general loader exists.

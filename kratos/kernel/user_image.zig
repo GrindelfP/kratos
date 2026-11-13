@@ -23,8 +23,13 @@ test "validate and load bounded images without modifying destination on error" {
     try std.testing.expectError(error.InvalidImage, validate("KRU1\x00\x00\x00\x00\x00\x00\x00\x00"));
     try std.testing.expectError(error.InvalidImage, validate("KRU1\x01\x10\x00\x00\x00\x00\x00\x00X"));
     try std.testing.expectError(error.InvalidImage, validate("KRU1\x02\x00\x00\x00\x00\x00\x00\x00X"));
+    try std.testing.expectError(error.InvalidImage, validate("KRU1\x01\x00\x00\x00\x00\x00\x00\x00XY"));
     try std.testing.expectError(error.InvalidImage, validate("KRU1\x01\x00\x00\x00\x01\x00\x00\x00X"));
     try std.testing.expectEqual(@as(usize, 0), try load("KRU1\x01\x00\x00\x00\x00\x00\x00\x00X", &page));
     try std.testing.expectEqual(@as(u8, 'X'), page[0]);
     try std.testing.expectEqual(@as(u8, 0), page[1]);
+    var maximum: [12 + page_size]u8 = @splat(0x90);
+    @memcpy(maximum[0..12], "KRU1\x00\x10\x00\x00\xff\x0f\x00\x00");
+    try std.testing.expectEqual(@as(usize, page_size - 1), try load(&maximum, &page));
+    try std.testing.expectEqual(@as(u8, 0x90), page[page_size - 1]);
 }

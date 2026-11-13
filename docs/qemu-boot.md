@@ -325,3 +325,40 @@ only if those checks and the ring-3 CS check succeed. Run
 `python3 kratos/test-user-boundary.py /path/to/kratos.iso`; the latter also
 checks the 0018 fault cases, shell recovery and kernel-origin NMI handling.
 This fixture is not a separately loaded program, scheduler or security guarantee.
+## Separate user program
+
+`hello` launches a separately assembled x86_64 freestanding program in ring 3.
+Its syscall output goes to COM1 (not the framebuffer); the shell prints its
+64-bit exit status in hexadecimal on both displays. It prints `Hello from a
+separate user program!` and exits with status 7. Type `hello` again to reuse the
+same context. `hel` completion is now ambiguous between `help` and `hello`.
+
+With the prerequisites and pinned versions above, build and run:
+
+```sh
+ZIG=/path/to/zig LIMINE_DIR=/path/to/limine-binary OUT_DIR=/tmp/kratos-build ./kratos/build-qemu.sh --build-only
+python3 kratos/test-user-program.py /tmp/kratos-build/kratos.iso
+python3 kratos/test-user-program.py /tmp/kratos-build/kratos.iso --no-nx
+/path/to/zig test kratos/kernel/user_image.zig
+```
+
+The build also requires `objcopy` (override with `OBJCOPY`). It independently
+assembles `kratos/user/hello.S` for `x86_64-none-elf`, extracts its `.text` into
+`hello.kru`, and links that opaque file into the kernel's read-only data; the
+kernel ELF is then placed in the ISO. This is not an ELF loader. KRU1 consists
+of `KRU1`, a little-endian u32 payload length, a little-endian u32 entry offset,
+then exactly that many payload bytes. Length must be 1–4096 and entry must be
+inside the payload. There are no relocations, imports, or separate initialized
+data segment: code and constants must be position-independent. The entry is
+`0x400000 + offset` (the supplied program uses offset zero), with a read-only
+executable page at `0x400000`, writable NX data at `0x401000`, and writable NX
+stack at `0x402000` (initial RSP `0x403000`). Syscalls use the ABI above.
+
+The loader checks the complete image and fixed mapping/physical prerequisites
+before entry. Missing, malformed, oversized or unsupported images, and user
+faults, report failure and return to the shell. The static pages are zeroed and
+reused on each run; only one context can run and no scheduling, preemption,
+filesystem, process isolation guarantee, or termination of a looping program
+is provided. The executable bytes are trusted boot content, not authenticated.
+The `--no-nx` test verifies visible failure and continued shell operation, not
+injection of a malformed image; malformed cases are exercised by host tests.
