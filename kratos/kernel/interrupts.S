@@ -5,6 +5,48 @@
 .text
 .extern kratos_exception_dispatch
 
+/* Preserve all registers except RAX. The privilege-change frame contains CS. */
+.globl kratos_syscall_entry
+kratos_syscall_entry:
+    cld
+    pushq %rcx
+    pushq %rdx
+    pushq %rbx
+    pushq %rbp
+    pushq %rsi
+    pushq %rdi
+    pushq %r8
+    pushq %r9
+    pushq %r10
+    pushq %r11
+    pushq %r12
+    pushq %r13
+    pushq %r14
+    pushq %r15
+    movq %rsi, %rdx
+    movq %rdi, %rsi
+    movq %rax, %rdi
+    movq 120(%rsp), %rcx
+    movq %rsp, %r12
+    andq $-16, %rsp
+    call kratos_syscall_dispatch
+    movq %r12, %rsp
+    popq %r15
+    popq %r14
+    popq %r13
+    popq %r12
+    popq %r11
+    popq %r10
+    popq %r9
+    popq %r8
+    popq %rdi
+    popq %rsi
+    popq %rbp
+    popq %rbx
+    popq %rdx
+    popq %rcx
+    iretq
+
 .macro EXCEPTION_NOERR n
 .globl kratos_exception_\n
 kratos_exception_\n:

@@ -122,6 +122,59 @@ kratos_user_nx_begin:
     jmp *%rax
 kratos_user_nx_end:
 
+.globl kratos_user_syscalls_begin, kratos_user_syscalls_end
+kratos_user_syscalls_begin:
+    movabsq $0x401000, %rax
+    movw %cs, (%rax)
+    movq $1, %rax
+    leaq 2f(%rip), %rdi
+    movq $24, %rsi
+    int $0x80
+    cmpq $24, %rax
+    jne 3f
+    movq $1, %rax
+    movabsq $0xffffffff80000000, %rdi
+    movq $1, %rsi
+    int $0x80
+    cmpq $-1, %rax
+    jne 3f
+    movq $1, %rax
+    movq $0x402fff, %rdi
+    movq $2, %rsi
+    int $0x80
+    cmpq $-1, %rax
+    jne 3f
+    movq $1, %rax
+    movq $-1, %rdi
+    movq $2, %rsi
+    int $0x80
+    cmpq $-1, %rax
+    jne 3f
+    movq $1, %rax
+    xorq %rdi, %rdi
+    xorq %rsi, %rsi
+    int $0x80
+    testq %rax, %rax
+    jne 3f
+    movq $1, %rax
+    movq $1025, %rsi
+    int $0x80
+    cmpq $-2, %rax
+    jne 3f
+    movq $999, %rax
+    int $0x80
+    cmpq $-3, %rax
+    jne 3f
+    movq $2, %rax
+    movq $42, %rdi
+    int $0x80
+3:  movq $2, %rax
+    movq $99, %rdi
+    int $0x80
+    ud2
+2:  .ascii "KratOS: syscall output\r\n"
+kratos_user_syscalls_end:
+
 .data
 .align 8
 user_gdt:

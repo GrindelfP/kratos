@@ -342,6 +342,11 @@ export fn kratos_kernel_main() noreturn {
     } else {
         console.write("KratOS: ring3 boundary self-test failed or unavailable\r\n");
     }
+    if (user_mode.run(.syscalls)) {
+        console.write("KratOS: ring3 syscall self-test passed exit=42\r\n");
+    } else {
+        console.write("KratOS: ring3 syscall self-test failed or unavailable\r\n");
+    }
     initializeFramebuffer();
     runShell(memory);
 }

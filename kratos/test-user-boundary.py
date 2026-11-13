@@ -62,6 +62,8 @@ try:
         b"user fault vector=0x000000000000000e error=0x0000000000000007",
         b"user fault vector=0x000000000000000e error=0x0000000000000015",
         b"ring3 boundary self-test passed",
+        b"KratOS: syscall output\r\n",
+        b"ring3 syscall self-test passed exit=42",
     ):
         if expected not in output:
             raise AssertionError(f"missing {expected!r}:\n{output.decode(errors='replace')}")
@@ -69,7 +71,7 @@ try:
     wait_for(b"\r\nrecovered-shell\r\nkratos> ")
     monitor.sendall(b"nmi\n")
     wait_for(b"fatal x86 exception vector=0x0000000000000002")
-    print("QEMU user faults, recovery shell, and kernel NMI classification passed")
+    print("QEMU user faults, syscalls, recovery shell, and kernel NMI classification passed")
 finally:
     process.terminate()
     try:

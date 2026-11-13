@@ -30,8 +30,10 @@ extern const kratos_user_write_begin: u8;
 extern const kratos_user_write_end: u8;
 extern const kratos_user_nx_begin: u8;
 extern const kratos_user_nx_end: u8;
+extern const kratos_user_syscalls_begin: u8;
+extern const kratos_user_syscalls_end: u8;
 
-pub const Test = enum { invalid_instruction, kernel_read, code_write, data_execute };
+pub const Test = enum { invalid_instruction, kernel_read, code_write, data_execute, syscalls };
 
 fn physical(ptr: *const anyopaque, address: *const AddressResponse) ?u64 {
     const virtual = @intFromPtr(ptr);
@@ -92,19 +94,24 @@ pub fn run(test_case: Test) bool {
         .kernel_read => .{ @intFromPtr(&kratos_user_pf_begin), @intFromPtr(&kratos_user_pf_end) },
         .code_write => .{ @intFromPtr(&kratos_user_write_begin), @intFromPtr(&kratos_user_write_end) },
         .data_execute => .{ @intFromPtr(&kratos_user_nx_begin), @intFromPtr(&kratos_user_nx_end) },
+        .syscalls => .{ @intFromPtr(&kratos_user_syscalls_begin), @intFromPtr(&kratos_user_syscalls_end) },
     };
     if (end <= begin or end - begin > code.len) return false;
     const snippet: [*]const u8 = @ptrFromInt(begin);
     @memcpy(code[0 .. end - begin], snippet[0 .. end - begin]);
     interrupts.user_vector = 0;
     interrupts.user_error = 0;
+    interrupts.user_exited = false;
+    interrupts.user_exit = 0;
     interrupts.user_active = true;
     kratos_user_enter(root_phys, 0x400000, 0x403000);
+    if (test_case == .syscalls) return data[0] == 0x23 and data[1] == 0 and interrupts.user_exited and interrupts.user_exit == 42;
     const vector: u64, const error_code: u64 = switch (test_case) {
         .invalid_instruction => .{ 6, 0 },
         .kernel_read => .{ 14, 5 },
         .code_write => .{ 14, 7 },
         .data_execute => .{ 14, 0x15 },
+        .syscalls => unreachable,
     };
     return data[0] == 0x23 and data[1] == 0 and interrupts.user_vector == vector and interrupts.user_error == error_code;
 }

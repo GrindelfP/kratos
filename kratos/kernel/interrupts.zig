@@ -17,8 +17,11 @@ const Idtr = packed struct {
 };
 
 extern const kratos_exception_stub_table: [32]usize;
+extern fn kratos_syscall_entry() void;
+const syscalls = @import("user_syscalls.zig");
+const console = @import("console.zig");
 
-var idt: [32]Gate = @splat(.{
+var idt: [129]Gate = @splat(.{
     .offset_low = 0,
     .selector = 0,
     .offset_middle = 0,
@@ -63,13 +66,15 @@ pub fn install() void {
     const code_selector = asm volatile ("mov %%cs, %[selector]"
         : [selector] "=r" (-> u16),
     );
-    for (&idt, 0..) |*gate, vector| {
+    for (idt[0..32], 0..) |*gate, vector| {
         const address = kratos_exception_stub_table[vector];
         gate.selector = code_selector;
         gate.offset_low = @truncate(address);
         gate.offset_middle = @truncate(address >> 16);
         gate.offset_high = @truncate(address >> 32);
     }
+    const syscall_address = @intFromPtr(&kratos_syscall_entry);
+    idt[128] = .{ .selector = code_selector, .attributes = 0xee, .offset_low = @truncate(syscall_address), .offset_middle = @truncate(syscall_address >> 16), .offset_high = @truncate(syscall_address >> 32) };
     const idtr = Idtr{ .limit = @intCast(@sizeOf(@TypeOf(idt)) - 1), .base = @intFromPtr(&idt) };
     asm volatile ("lidt (%[descriptor])"
         :
@@ -82,6 +87,31 @@ extern fn kratos_user_recover() noreturn;
 pub var user_active = false;
 pub var user_vector: u64 = 0;
 pub var user_error: u64 = 0;
+pub var user_exit: u64 = 0;
+pub var user_exited = false;
+
+export fn kratos_syscall_dispatch(number: u64, arg1: u64, arg2: u64, cs: u64) u64 {
+    if (!user_active or cs & 3 != 3) {
+        serialWrite("KratOS: fatal invalid syscall origin\r\n");
+        while (true) asm volatile ("cli; hlt");
+    }
+    switch (syscalls.dispatch(number, arg1, arg2)) {
+        .result => |value| return value,
+        .output => |output| {
+            if (output.length != 0) {
+                const bytes: [*]const u8 = @ptrFromInt(output.address);
+                console.write(bytes[0..@intCast(output.length)]);
+            }
+            return output.length;
+        },
+        .exit => |status| {
+            user_exit = status;
+            user_exited = true;
+            user_active = false;
+            kratos_user_recover();
+        },
+    }
+}
 
 export fn kratos_exception_dispatch(vector: u64, error_code: u64, instruction_pointer: u64, cs: u64) noreturn {
     last_exception_vector = vector;
