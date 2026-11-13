@@ -297,6 +297,25 @@ test "shell mutation commands format create write read and remove" {
     try testing.expectError(error.NotFound, volume.lookup("home:/work/note"));
 }
 
+test "shell grant command resolves shared space root and persists role" {
+    const testing = std.testing;
+    var disk = TestDisk.init();
+    defer testing.allocator.free(disk.bytes);
+    var volume = volume_mod.Volume{ .device = disk.device() };
+    var output: TestOutput = .{};
+    const writer = Writer{ .context = &output, .write = TestOutput.write };
+    try volume.formatBlank();
+    const alice = try volume.createAccount("alice");
+    const bob = try volume.createAccount("bob");
+    var principal = alice;
+    executeAs(&volume, &principal, "space-create", "team", writer);
+    try testing.expect(std.mem.indexOf(u8, output.bytes[0..output.len], "Space created\r\n") != null);
+    output.len = 0;
+    executeAs(&volume, &principal, "grant", "team: 3 reader", writer);
+    try testing.expect(std.mem.indexOf(u8, output.bytes[0..output.len], "Grant saved\r\n") != null);
+    try testing.expectEqual(volume_mod.Role.reader, volume.roleFor((try volume.lookup("team:")).id, bob).?);
+}
+
 const TestOutput = struct {
     bytes: [1024]u8 = undefined,
     len: usize = 0,
