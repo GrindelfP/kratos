@@ -85,3 +85,5 @@
 [2026-11-13] - [12:29 MSK] - Updated the personal skills repository from its remote and installed its two additional Codex skills, bringing the installed set to six; verified all copies against the updated source.
 
 [2026-11-13] - [12:31 MSK] - Started a project session, reviewed repository guidance and handoff, and fast-forward checked main against origin.
+
+[2026-11-13] - [12:40 MSK] - Completed ticket 0022: specified the native filesystem namespace and implemented and host-tested bounded lexical path validation and canonicalization; storage and access enforcement remain deferred.

@@ -1,6 +1,6 @@
 # Define the native filesystem namespace contract
 
-**Status:** planned
+**Status:** complete
 
 ## Description
 
@@ -38,3 +38,9 @@ Follows the completed user-mode milestone [0018–0021](0021-user-mode-qemu-veri
 and the [filesystem roadmap](../roadmap.md#next-milestone-native-space-based-filesystem).
 Tickets 0023–0030 use this contract. Keep namespace terminology separate from
 the disk format so the storage implementation can change without changing paths.
+
+## Verification
+
+The [namespace contract](../filesystem-namespace.md) specifies the logical model.
+`zig test kratos/kernel/namespace.zig` passes the independent lexical parser tests
+with Zig 0.17.0. Storage, lookup and access enforcement remain later milestones.
