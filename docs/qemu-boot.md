@@ -500,11 +500,19 @@ KRATOS_DATA_IMAGE=/tmp/kratos-data.img ./kratos/build-qemu.sh
 
 `KRATOS_DATA_IMAGE` must name an existing raw image. Without it the kernel
 reports that the data disk is absent and continues with the read-only system
-mount and recovery shell. An attached but unformatted disk is only a block
-device at this milestone; the writable-space format and mutations are covered
-by ticket 0028. `block_device.zig` host tests exercise request bounds and error
-propagation. For the isolated device regression, build a fixture ISO and a
-disposable image, then boot the same image twice:
+mount and recovery shell. An attached but unformatted disk is left untouched.
+Use `space-format` only with a blank image; it verifies both metadata slots are
+zero before writing. Then `space-create home`, `mkdir home:/work/notes`,
+`touch home:/work/notes/today`, and `write home:/work/notes/today hello` create
+and write a file. `read` displays up to 96 bytes, `space-list` lists spaces,
+`mv <source> <destination>` renames or moves within one space, and `rm` removes
+an empty file or directory. Each successful operation persists before it
+returns. See [data-volume-format.md](data-volume-format.md) for the snapshot
+layout, limits, and interruption behavior.
+
+`block_device.zig` host tests exercise request bounds and error propagation.
+For the isolated device regression, build a fixture ISO and a disposable image,
+then boot the same image twice:
 
 ```sh
 KRATOS_TEST_BLOCK=1 OUT_DIR=/tmp/kratos-block-iso ./kratos/build-qemu.sh --build-only
@@ -517,3 +525,18 @@ The fixture marker limits the test write to the final sector of the explicitly
 disposable test image. The first boot writes, flushes, and reads a pattern; the
 second boot verifies persistence, exercises shell recovery, and shuts down.
 Normal images contain no marker and never run this test path.
+
+For the writable-space persistence regression, build the marker ISO and blank
+data image, then boot the same image twice:
+
+```sh
+KRATOS_TEST_SPACE=1 OUT_DIR=/tmp/kratos-space-iso ./kratos/build-qemu.sh --build-only
+./kratos/create-data-image.sh /tmp/kratos-space-data.img 64M
+ISO=/tmp/kratos-space-iso/kratos.iso KRATOS_DATA_IMAGE=/tmp/kratos-space-data.img \
+  python3 kratos/test-writable-volume.py
+```
+
+The first marked boot formats only the blank test image, creates
+`test:/archive/probe`, and writes a persistence marker. The second boot checks
+the remounted contents and shell recovery. Normal images contain no marker and
+never run this test path.

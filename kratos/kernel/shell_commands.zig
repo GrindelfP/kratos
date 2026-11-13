@@ -1,9 +1,11 @@
 //! Bounded built-in shell command dispatcher. No I/O or allocation is performed
 //! here; callers supply the writer and a compact snapshot of boot memory data.
 const space_shell = @import("space_shell.zig");
+const writable_shell = @import("writable_shell.zig");
+const writable_volume = @import("writable_volume.zig");
 
 pub const max_line_length = 128;
-pub const names = [_][]const u8{ "help", "about", "echo", "mem", "clear", "kratos", "halt", "shutdown", "hello", "spaces", "ls", "pwd", "cd", "cat" };
+pub const names = [_][]const u8{ "help", "about", "echo", "mem", "clear", "kratos", "halt", "shutdown", "hello", "spaces", "ls", "pwd", "cd", "cat", "space-format", "space-create", "space-list", "mkdir", "touch", "write", "read", "mv", "rm" };
 
 pub const Action = enum { continue_shell, halt, kratos, shutdown, hello };
 
@@ -19,6 +21,8 @@ pub const Context = struct {
     write: *const fn (*anyopaque, []const u8) void,
     clear: *const fn (*anyopaque) void,
     browser: ?*space_shell.Browser = null,
+    writable: ?*writable_volume.Volume = null,
+    writable_mounted: bool = false,
 };
 
 pub const Error = error{LineTooLong};
@@ -32,8 +36,8 @@ pub fn execute(context: *Context, line: []const u8) Error!Action {
     const command = input[0..split];
     const args = if (split < input.len) trim(input[split..]) else "";
     if (eql(command, names[0])) {
-        context.write(context.writer_context, "help about echo mem clear kratos halt shutdown hello spaces ls pwd cd cat\r\n");
-        context.write(context.writer_context, "Filesystem starts at system:; only mounted system is discoverable until principal grants arrive\r\n");
+        context.write(context.writer_context, "help about echo mem clear kratos halt shutdown hello spaces ls pwd cd cat space-format space-create space-list mkdir touch write read mv rm\r\n");
+        context.write(context.writer_context, "system: is read-only; data spaces require an attached formatted disk and use one admin context\r\n");
     } else if (eql(command, names[1])) {
         context.write(context.writer_context, "KratOS: a small hobby operating system\r\n");
     } else if (eql(command, names[2])) {
@@ -67,6 +71,12 @@ pub fn execute(context: *Context, line: []const u8) Error!Action {
         return .shutdown;
     } else if (eql(command, names[8])) {
         return .hello;
+    } else if (eql(command, names[14]) or eql(command, names[15]) or eql(command, names[16]) or eql(command, names[17]) or eql(command, names[18]) or eql(command, names[19]) or eql(command, names[20]) or eql(command, names[21]) or eql(command, names[22])) {
+        if (context.writable) |volume| {
+            if (eql(command, "space-format") or context.writable_mounted or volume.active_slot != null) {
+                writable_shell.execute(volume, command, args, .{ .context = context.writer_context, .write = context.write });
+            } else context.write(context.writer_context, "Writable data volume unavailable or unformatted\r\n");
+        } else context.write(context.writer_context, "Writable data disk unavailable\r\n");
     } else if (eql(command, names[9]) or eql(command, names[10]) or eql(command, names[11]) or eql(command, names[12]) or eql(command, names[13])) {
         if (context.browser) |browser| browser.execute(command, args) else context.write(context.writer_context, "system space unavailable\r\n");
     } else {

@@ -65,6 +65,13 @@ if [ "${KRATOS_TEST_BLOCK:-0}" = 1 ]; then
 else
   SYSTEM_TYPES="$ROOT/kratos/user/system-types.json"
 fi
+if [ "${KRATOS_TEST_SPACE:-0}" = 1 ]; then
+  : > "$OUT/system-tree/policy/spacetest"
+  SPACE_TYPES="$OUT/system-types-spacetest.json"
+  cp "$SYSTEM_TYPES" "$SPACE_TYPES"
+  python3 -c 'import json,sys; p=sys.argv[1]; d=json.load(open(p)); d["policy/spacetest"]="opaque"; json.dump(d,open(p,"w"))' "$SPACE_TYPES"
+  SYSTEM_TYPES="$SPACE_TYPES"
+fi
 if [ "${KRATOS_TEST_SYSTEM_IMAGE:-normal}" = "malformed-program" ]; then
   printf 'BAD KRU1 payload' > "$OUT/system-tree/packages/hello/program"
 fi

@@ -14,6 +14,7 @@ const user_mode = @import("user_mode.zig");
 const system_image = @import("system_image.zig");
 const space_shell = @import("space_shell.zig");
 const ata_pio = @import("ata_pio.zig");
+const writable_volume_mod = @import("writable_volume.zig");
 
 const max_memory_map_entries = 128;
 const qemu_debug_exit_port: u16 = 0xf4;
@@ -58,6 +59,8 @@ var system_records: [system_image.max_objects]system_image.Record = undefined;
 var system_volume: system_image.Volume = .{};
 var data_controller = ata_pio.Controller{};
 var data_device: @import("block_device.zig").Device = .{};
+var data_volume: writable_volume_mod.Volume = undefined;
+var data_volume_mounted = false;
 var packaged_program: [12 + 4096]u8 = undefined;
 var shell_writer_context: u8 = 0;
 var keyboard_decoder = input.Decoder{};
@@ -350,6 +353,14 @@ fn initializeDataDevice() void {
     console.write("KratOS: ATA PIO data disk sectors=");
     serialWriteHex(data_controller.sectors);
     console.write(" sector-size=512\r\n");
+    data_volume = .{ .device = data_device };
+    data_volume.mount() catch |err| {
+        data_volume_mounted = false;
+        if (err == error.Unformatted) console.write("KratOS: data volume unformatted; use space-format on a blank image\r\n") else console.write("KratOS: data volume invalid; preserved disk and recovery shell active\r\n");
+        return;
+    };
+    data_volume_mounted = true;
+    console.write("KratOS: writable spaces mounted\r\n");
 }
 
 fn runBlockDeviceFixture() void {
@@ -390,6 +401,47 @@ fn runBlockDeviceFixture() void {
     console.write("KratOS: block device write/read passed; reboot to verify persistence\r\n");
 }
 
+fn runWritableVolumeFixture() void {
+    _ = system_volume.lookup("system:/policy/spacetest") catch return;
+    if (data_device.backend == null) {
+        console.write("KratOS: writable space fixture requires data disk; recovery shell active\r\n");
+        return;
+    }
+    if (!data_volume_mounted) {
+        data_volume.formatBlank() catch {
+            console.write("KratOS: writable space fixture could not safely format blank metadata; recovery shell active\r\n");
+            return;
+        };
+        data_volume_mounted = true;
+    }
+    _ = data_volume.lookup("test:") catch |err| {
+        if (err != error.NotFound) return;
+        _ = data_volume.createSpace("test") catch {
+            console.write("KratOS: writable space fixture create failed; recovery shell active\r\n");
+            return;
+        };
+    };
+    const archive = data_volume.lookup("test:/archive") catch return;
+    const file = data_volume.lookup("test:/archive/probe") catch |err| blk: {
+        if (err != error.NotFound) return;
+        break :blk data_volume.createFile(archive, "probe") catch return;
+    };
+    var bytes: [32]u8 = undefined;
+    const count = data_volume.read(file, 0, &bytes) catch {
+        console.write("KratOS: writable space fixture read failed; recovery shell active\r\n");
+        return;
+    };
+    if (std.mem.eql(u8, bytes[0..count], "persistent-space-v1")) {
+        console.write("KratOS: writable space create/write/remount persistence passed\r\n");
+    } else {
+        data_volume.write(file, "persistent-space-v1") catch {
+            console.write("KratOS: writable space fixture write failed; recovery shell active\r\n");
+            return;
+        };
+        console.write("KratOS: writable space fixture initialized; reboot to verify persistence\r\n");
+    }
+}
+
 fn launchPackagedHello() bool {
     const handle = system_volume.lookup("system:/packages/hello/program") catch return false;
     const info = system_volume.stat(handle) catch return false;
@@ -407,6 +459,8 @@ fn runShell(memory: shell_commands.MemorySummary) noreturn {
         .write = writeShellOutput,
         .clear = clearShellOutput,
         .browser = &browser,
+        .writable = if (data_device.backend != null) &data_volume else null,
+        .writable_mounted = data_volume_mounted,
     };
     var line: [console.line_capacity]u8 = undefined;
     while (true) {
@@ -463,6 +517,7 @@ export fn kratos_kernel_main() noreturn {
     initializeSystemMount();
     initializeDataDevice();
     runBlockDeviceFixture();
+    runWritableVolumeFixture();
     interrupts.setSystemVolume(&system_volume);
     if (user_mode.run(.invalid_instruction) and user_mode.run(.kernel_read) and user_mode.run(.code_write) and user_mode.run(.data_execute)) {
         console.write("KratOS: ring3 boundary self-test passed\r\n");
