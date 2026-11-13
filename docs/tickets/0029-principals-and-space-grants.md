@@ -1,6 +1,6 @@
 # Add principals and enforce space grants
 
-**Status:** planned
+**Status:** completed
 
 ## Description
 
@@ -35,3 +35,7 @@ Depends on [0022](0022-filesystem-namespace-contract.md),
 [0026](0026-user-files-and-package-launch.md), and
 [0028](0028-persistent-space-mutations.md). These checks prepare the namespace
 for future multiuser sessions without claiming a complete security model.
+
+## Completion
+
+Implemented persisted v2 account/grant metadata with stable account and private-space IDs, account rename/disable, owner/editor/reader roles, recovery-shell principal administration, filtered discovery, authorized mutations, and per-read user-handle revalidation. Host volume (9/9), writable-shell (10/10), dispatcher (20/20), and syscall (14/14) tests passed, along with a freestanding kernel-object build. QEMU remains blocked by the unavailable Zig 0.17.0 and Limine assets.

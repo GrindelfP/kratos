@@ -101,3 +101,5 @@
 [2026-11-13] - [19:18 MSK] - Completed ticket 0027: added a bounded primary-master ATA PIO storage path, checked block API, q35 IDE launch option, and non-overwriting image/persistence fixtures. Host block tests and a freestanding link passed; guest write/reboot execution awaits ticket 0028 and local ISO prerequisites.
 
 [2026-11-13] - [19:32 MSK] - Completed ticket 0028: added a versioned dual-slot CRC copy-on-write volume with bounded space/file mutation, stable IDs, boot mounting, shell mutation commands, and interruption-recovery tests. Host volume and shell tests plus a freestanding link passed; QEMU fixtures await Zig 0.17.0 and Limine assets.
+
+[2026-11-13] - [19:45 MSK] - Completed ticket 0029: persisted stable accounts and grants, enforced owner/editor/reader policy in shell and user file reads, and verified metadata, shell, dispatcher, and syscall host suites; QEMU remains environment-blocked.
