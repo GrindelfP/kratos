@@ -1,8 +1,9 @@
 //! Bounded built-in shell command dispatcher. No I/O or allocation is performed
 //! here; callers supply the writer and a compact snapshot of boot memory data.
+const space_shell = @import("space_shell.zig");
 
 pub const max_line_length = 128;
-pub const names = [_][]const u8{ "help", "about", "echo", "mem", "clear", "kratos", "halt", "shutdown", "hello" };
+pub const names = [_][]const u8{ "help", "about", "echo", "mem", "clear", "kratos", "halt", "shutdown", "hello", "spaces", "ls", "pwd", "cd", "cat" };
 
 pub const Action = enum { continue_shell, halt, kratos, shutdown, hello };
 
@@ -17,6 +18,7 @@ pub const Context = struct {
     writer_context: *anyopaque,
     write: *const fn (*anyopaque, []const u8) void,
     clear: *const fn (*anyopaque) void,
+    browser: ?*space_shell.Browser = null,
 };
 
 pub const Error = error{LineTooLong};
@@ -30,7 +32,8 @@ pub fn execute(context: *Context, line: []const u8) Error!Action {
     const command = input[0..split];
     const args = if (split < input.len) trim(input[split..]) else "";
     if (eql(command, names[0])) {
-        context.write(context.writer_context, "help about echo mem clear kratos halt shutdown hello\r\n");
+        context.write(context.writer_context, "help about echo mem clear kratos halt shutdown hello spaces ls pwd cd cat\r\n");
+        context.write(context.writer_context, "Filesystem starts at system:; only mounted system is discoverable until principal grants arrive\r\n");
     } else if (eql(command, names[1])) {
         context.write(context.writer_context, "KratOS: a small hobby operating system\r\n");
     } else if (eql(command, names[2])) {
@@ -64,6 +67,8 @@ pub fn execute(context: *Context, line: []const u8) Error!Action {
         return .shutdown;
     } else if (eql(command, names[8])) {
         return .hello;
+    } else if (eql(command, names[9]) or eql(command, names[10]) or eql(command, names[11]) or eql(command, names[12]) or eql(command, names[13])) {
+        if (context.browser) |browser| browser.execute(command, args) else context.write(context.writer_context, "system space unavailable\r\n");
     } else {
         context.write(context.writer_context, "Unknown command: ");
         context.write(context.writer_context, command);

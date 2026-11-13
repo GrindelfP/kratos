@@ -102,7 +102,16 @@ NMI via the QEMU monitor, expecting fatal vector 2 rather than user recovery.
 ## Shell commands
 
 Built-ins are `help`, `about`, `echo <text>`, `mem`, `clear`, `kratos`, `halt`,
-and `shutdown`;
+`shutdown`, and `hello`. Read-only system-space browsing is available through
+`spaces`, `pwd`, `ls [path]`, `cd <path>`, and `cat <text-file>`. The browser
+starts at `system:` (the image root); paths can be relative to the current
+directory or absolute, and `.`/`..` are normalized according to the namespace
+grammar. `ls` lists at most 16 entries, while `cat` prints at most the first 96
+bytes of a text file. `spaces` lists only the mounted `system` space until
+principal discovery and grants arrive in ticket 0029. Other spaces are not yet
+available. These commands use the same lowercase ASCII path names as the
+filesystem contract. Errors return to the shell without changing its current
+directory.
 unknown commands report an error and return to the prompt. Input is limited to
 128 bytes. Backspace edits a valid line; exceeding the limit rings the bell and
 discards the entire line through its terminator. UART overrun, parity, framing,
@@ -216,7 +225,7 @@ Example interaction (memory values depend on the Limine map):
 
 ```text
 kratos> help
-help about echo mem clear kratos halt shutdown
+help about echo mem clear kratos halt shutdown hello spaces ls pwd cd cat
 kratos> about
 KratOS: a small hobby operating system
 kratos> echo hello KratOS
@@ -239,8 +248,9 @@ The script uses monitor `sendkey` to generate keyboard events, never injects
 serial input, checks serial output as an independent observation, and retains
 welcome, shell, and app screenshots in a printed temporary directory. It tests
 Backspace, Shift and quoted echo, Tab completion, history and draft restoration,
-recalled command execution, a full-capacity draft and short/long history redraw
-with framebuffer screenshot comparisons, app exit, shell recovery, and `shutdown`'s
+recalled command execution, system-space navigation, failed lookup and shell
+recovery, a full-capacity draft and short/long history redraw with framebuffer
+screenshot comparisons, app exit, and `shutdown`'s
 QEMU process exit/status.
 
 On 2026-11-01, the monitor-key test passed on QEMU at 1280x800 and 320x200 (a
@@ -254,8 +264,9 @@ delivery, not physical keyboard layouts.
 After building a BIOS ISO with `./kratos/build-qemu.sh --build-only`, run
 `./kratos/test-serial-shell.sh [path/to/kratos.iso]`. This repeatably boots the
 documented `q35`/256 MiB QEMU configuration and rapidly pastes a 115-byte echo
-command followed by `help` and `about`, tests CRLF, exactly-full and overflowing
-lines, quoted echo, backspace, unknown-command recovery, and `halt`. It starts a
+command followed by `help` and `about`, tests system-space listing/navigation,
+text preview and a failed lookup, CRLF, exactly-full and overflowing lines,
+quoted echo, backspace, unknown-command recovery, and `halt`. It starts a
 second VM to send `shutdown` over serial and verifies QEMU exits with status 33.
 The script requires `expect` in addition to the QEMU prerequisites and fails on
 missing output, corruption, or a damaged prompt. Unit tests can be run without

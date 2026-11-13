@@ -40,13 +40,37 @@ expect {
     timeout { puts stderr "prompt was damaged after the long echo"; exit 1 }
 }
 expect {
-    "help about echo mem clear kratos halt shutdown" {}
+    "help about echo mem clear kratos halt shutdown hello spaces ls pwd cd cat" {}
     timeout { puts stderr "command after pasted echo did not execute cleanly"; exit 1 }
 }
 expect {
     "KratOS: a small hobby operating system" {}
     timeout { puts stderr "later command was lost or prompt was corrupted"; exit 1 }
 }
+expect "kratos> "
+
+# Browse the packaged system namespace and recover after a failed lookup.
+send -- "spaces\r"
+expect "Accessible spaces: system"
+expect "kratos> "
+send -- "pwd\r"
+expect "system:"
+expect "kratos> "
+send -- "ls system:/packages/hello\r"
+expect "message"
+expect "program"
+expect "kratos> "
+send -- "cd system:/packages/hello\r"
+expect "kratos> "
+send -- "pwd\r"
+expect "system:/packages/hello"
+expect "kratos> "
+send -- "cat message\r"
+expect "Hello from the system space."
+expect "kratos> "
+send -- "ls system:/missing\rabout\r"
+expect "Path not found"
+expect "KratOS: a small hobby operating system"
 expect "kratos> "
 
 # A line exactly at capacity remains accepted, and quote parsing works in QEMU.

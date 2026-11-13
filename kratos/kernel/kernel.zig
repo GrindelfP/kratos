@@ -12,6 +12,7 @@ const input = @import("input.zig");
 const animation = @import("animation.zig");
 const user_mode = @import("user_mode.zig");
 const system_image = @import("system_image.zig");
+const space_shell = @import("space_shell.zig");
 
 const max_memory_map_entries = 128;
 const qemu_debug_exit_port: u16 = 0xf4;
@@ -331,11 +332,13 @@ fn initializeSystemMount() void {
 }
 
 fn runShell(memory: shell_commands.MemorySummary) noreturn {
+    var browser = space_shell.Browser.init(&system_volume, &shell_writer_context, writeShellOutput);
     var context = shell_commands.Context{
         .memory = memory,
         .writer_context = &shell_writer_context,
         .write = writeShellOutput,
         .clear = clearShellOutput,
+        .browser = &browser,
     };
     var line: [console.line_capacity]u8 = undefined;
     while (true) {

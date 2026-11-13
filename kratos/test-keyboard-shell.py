@@ -87,10 +87,22 @@ try:
         for name in names:
             key(name)
 
+    def type_text(text):
+        mapping = {":": "shift-semicolon", "/": "slash", " ": "spc", "\n": "ret"}
+        type_keys([mapping.get(char, char) for char in text])
+
     wait_for("kratos> ")
     monitor_command("screendump " + base + "-welcome.ppm")
     type_keys(["h", "e", "l", "x", "backspace", "p", "ret"])
-    wait_for("help about echo mem clear kratos halt shutdown")
+    wait_for("help about echo mem clear kratos halt shutdown hello spaces ls pwd cd cat")
+    type_text("cd system:/packages/hello\n")
+    wait_for("kratos> cd system:/packages/hello")
+    type_text("pwd\n")
+    wait_for("system:/packages/hello")
+    type_text("ls system:/missing\n")
+    wait_for("Path not found")
+    type_text("about\n")
+    wait_for("KratOS: a small hobby operating system")
     type_keys(
         [
             "e", "c", "h", "o", "spc", "shift-apostrophe", "shift-h", "e",
@@ -130,7 +142,7 @@ try:
     else:
         raise AssertionError("recalled command did not execute twice: " + read_log())
     type_keys(["h", "tab"])
-    wait_for("help halt ")
+    wait_for("help halt hello ")
     type_keys(["e", "l", "p", "ret"])
     type_keys(["c", "l", "e", "a", "r", "ret"])
     wait_for("[screen cleared]")
@@ -144,13 +156,13 @@ try:
     time.sleep(0.5)
     monitor_command("screendump " + base + "-return.ppm")
     type_keys(["h", "e", "l", "p", "ret"])
-    wait_for("help about echo mem clear kratos halt shutdown")
+    wait_for("help about echo mem clear kratos halt shutdown hello spaces ls pwd cd cat")
     type_keys(["s", "h", "u", "t", "d", "o", "w", "n", "ret"])
     wait_for("KratOS shutting down")
     status = process.wait(timeout=5)
     assert status == 33, f"unexpected QEMU shutdown status: {status}"
     data = read_log()
-    assert data.count("help about echo mem clear kratos halt shutdown") == 3, data
+    assert data.count("help about echo mem clear kratos halt shutdown hello spaces ls pwd cd cat") == 3, data
     print(data)
     print("QEMU exited via guest shutdown with status 33.")
     print("Screenshots and serial output:", os.path.dirname(base))
